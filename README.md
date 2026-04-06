@@ -1,214 +1,238 @@
-# Rocky - 3D Educational World MVP
+# Rocky MVP
 
-A Minecraft/Roblox-style 3D educational world for kids to explore subject-based regions, complete creative building challenges, and interact with an AI companion.
+A role-based, 3D educational sandbox for children (ages 8-12), where teachers publish creative missions, students build themed worlds with Rocky’s guidance, and parents monitor progress in read-only mode.
 
-## Project Purpose
+This project is intentionally implemented as a **local-first hackathon MVP** with mock persistence and no backend dependency.
 
-This MVP delivers a small, playable 3D scene proving core value: exploration, building, AI feedback, sharing, and dashboards. Focus on quality demo over features. Target 1-2 weeks build.
+---
 
-## Target Users
+## Product Overview
 
-- **Students (kids 8-12)**: Primary users exploring, building, and learning.
-- **Teachers**: Assign challenges, track progress.
-- **Parents**: View child's world and progress read-only.
+Rocky demonstrates a complete role-driven product loop:
+
+- **Teacher** publishes today’s creative task.
+- **Student** enters the 3D world, selects a style, generates themed assets, and builds on a grid board.
+- **Rocky** (an in-world AI-style companion) guides creativity through subtitles and comic bubble suggestions.
+- **Parent** views child progress and latest build summary.
+
+### Target Users
+
+- **Students (8-12)**: primary interactive users.
+- **Teachers**: assign and supervise creative learning activities.
+- **Parents**: read-only observers of child progress.
+
+---
+
+## Current Feature Set
+
+### Authentication and Role Flow (Mock)
+
+- Role selection landing screen.
+- Optional display name.
+- Session persisted in `localStorage`.
+- Route guards by role.
+- Logout returns user to role selection.
+
+### Student Build World
+
+- Large **12x12 grid-based build board** with visible cell lines.
+- Hotbar-driven asset selection (10 slots).
+- Snap-to-grid placement and one-item-per-cell occupancy.
+- Single-place behavior per hotbar selection (prevents accidental spam placement).
+- Object editing after placement:
+  - select object,
+  - scale (`0.5x` to `2.0x`),
+  - rotate (`90°`),
+  - delete.
+
+### Rocky Companion
+
+- 3D floating Rocky in scene.
+- Top subtitle narration for passive guidance.
+- Clickable Rocky opens comic-style speech bubble.
+- Contextual, question-led suggestions based on task/style/build state.
+- “Ask Rocky” interaction for additional ideas.
+
+### Teacher and Parent Experiences
+
+- **Teacher** can publish task title/description/prompt/theme examples.
+- Student reads active teacher task on world entry.
+- **Teacher/Parent** read build summary (style, object count, latest reflection) from local state.
+
+---
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14 + TypeScript + Tailwind CSS
-- **UI**: shadcn/ui
-- **3D**: Three.js with React Three Fiber and @react-three/drei
-- **Database**: PostgreSQL (planned)
-- **Auth**: NextAuth.js (planned)
-- **AI Companion**: OpenAI API (planned)
-- **Testing**: Jest for critical logic
+- **Framework**: Next.js 14 (App Router)
+- **Language**: TypeScript (strict mode)
+- **UI**: React + Tailwind CSS
+- **3D**: Three.js via React Three Fiber (`@react-three/fiber`) + `@react-three/drei`
+- **Testing**: Jest
+- **Persistence (MVP)**: browser `localStorage`
+
+> Note: Despite earlier exploration prompts mentioning Vite/vanilla JS, this repository is implemented in Next.js + TypeScript and should be maintained in this stack.
+
+---
 
 ## Quick Start
 
 ### Prerequisites
-- Node.js 18+
-- npm or yarn
 
-### Installation
+- Node.js 18+ (Node 20 LTS recommended)
+- npm
+
+### Install
+
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd rocky
-
-# Install dependencies
 npm install
+```
 
-# Start development server
+### Run Development Server
+
+```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the application.
+Open [http://localhost:3000](http://localhost:3000).
 
-### Testing
-```bash
-# Run all tests
-npm test
+### Build and Production Run
 
-# Run tests in watch mode
-npm run test:watch
-
-# Run tests with coverage
-npm run test:coverage
-```
-
-## Project Structure
-
-```
-src/
-├── app/                    # Next.js app router pages
-│   ├── student/           # Student experience (/student)
-│   ├── teacher/           # Teacher dashboard (/teacher)
-│   ├── parent/            # Parent viewer (/parent)
-│   └── world/             # 3D world (/world)
-├── components/            # Feature-based React components
-│   ├── world/             # 3D world components
-│   │   ├── world-scene.tsx      # Main 3D canvas
-│   │   ├── challenge-area.tsx   # Interactive challenge logic
-│   │   └── world-environment.tsx # Scene lighting/geometry
-│   ├── ai/                # AI companion components
-│   │   ├── ai-companion.tsx     # Chat overlay
-│   │   └── ai-companion-3d.tsx  # 3D robot avatar
-│   ├── teacher/           # Teacher dashboard components
-│   ├── parent/            # Parent viewer components
-│   └── ui/                # Shared UI components
-├── lib/                   # Business logic and utilities
-│   ├── mock-data.ts       # Centralized mock data
-│   ├── teacher-data.ts    # Teacher dashboard data service
-│   ├── parent-data.ts     # Parent viewer data service
-│   ├── ai-service.ts      # AI companion service
-│   ├── challenge-logic.ts # Challenge validation logic
-│   ├── auth.ts            # Authentication utilities (planned)
-│   └── api.ts             # API client (planned)
-├── types/                 # TypeScript type definitions
-│   ├── index.ts           # Core domain types
-│   └── ai.ts              # AI-specific types
-├── scenes/                # 3D scene logic (separated for modularity)
-└── __tests__/             # Test files
-    ├── setup.ts           # Jest configuration
-    ├── challenge-logic.test.ts    # Challenge validation tests
-    ├── ai-service.test.ts         # AI safety tests
-    └── data-services.test.ts      # Role boundary tests
-```
-
-## Development Workflow
-
-### Code Organization
-- **Feature-based components**: Group by functionality (world/, ai/, teacher/, parent/)
-- **Separation of concerns**: Keep 3D rendering separate from game logic
-- **TypeScript strict mode**: All code must be fully typed
-- **Functional components**: Use hooks, avoid class components
-- **Kebab-case naming**: `challenge-area.tsx`, `ai-companion.tsx`
-
-### Key Principles
-- **Modular architecture**: Separate scene, gameplay, and business logic
-- **Testable code**: Extract logic from components for unit testing
-- **Role-based access**: Enforce boundaries in data services
-- **AI safety**: Validate all AI responses for child-friendly content
-- **Maintainable 3D**: Keep scene code focused and decoupled
-
-### Testing Strategy
-- **Challenge rules**: Test completion logic independently
-- **Role boundaries**: Verify data access restrictions
-- **AI safety**: Validate response filtering and length limits
-- **Progress calculations**: Test summary and aggregation logic
-
-## Developer Notes
-
-### For Junior Developers
-
-**Challenge Logic Separation**: The `challenge-logic.ts` file contains pure functions for validating challenge completion. This keeps complex logic out of React components and makes it easy to test. Always extract business logic from UI components.
-
-**Mock Data Centralization**: All mock data lives in `mock-data.ts`. This prevents duplication and makes it easy to update test data in one place.
-
-**AI Response Safety**: The AI service validates responses for child safety. Remember: no direct answers, keep messages short, and always end questions with `?`.
-
-**3D Scene Architecture**: Keep 3D rendering (`@react-three/fiber`) separate from game logic. Use the `challenge-logic.ts` for rules, not the 3D components.
-
-### Common Patterns
-
-**Data Service Pattern**:
-```typescript
-// Good: Pure functions, easy to test
-export function calculateProgress(studentId: string): number {
-  const progress = getStudentProgress(studentId)
-  return (progress.completed / progress.total) * 100
-}
-```
-
-**Component Pattern**:
-```typescript
-// Good: Extract logic, focus on rendering
-export function ChallengeArea({ onContextUpdate }: Props) {
-  const [cubes, setCubes] = useState<PlacedCube[]>([])
-
-  const handlePlace = (cube: PlacedCube) => {
-    const updated = [...cubes, cube]
-    setCubes(updated)
-
-    if (isChallengeComplete('line_challenge', updated)) {
-      onContextUpdate({ action: 'completed_challenge' })
-    }
-  }
-
-  return <group>{/* 3D rendering */}</group>
-}
-```
-
-### Environment Setup
-
-For future development with real services:
-
-1. **Database**: Set up PostgreSQL and run migrations
-2. **Auth**: Configure NextAuth.js with your providers
-3. **AI**: Add OpenAI API key to environment variables
-4. **Testing**: Set up CI/CD with test coverage requirements
-
-## API Endpoints (Planned)
-
-- `GET /api/students` - Teacher: list students with progress
-- `GET /api/parent/:childId` - Parent: view child's progress
-- `POST /api/challenges/:id/complete` - Student: mark challenge complete
-- `POST /api/ai/chat` - Student: get AI companion response
-
-## Deployment
-
-### Vercel (Recommended)
 ```bash
 npm run build
-# Deploy via Vercel CLI or GitHub integration
+npm run start
 ```
 
-### Environment Variables
-```env
-# Database
-DATABASE_URL=postgresql://...
+### Quality Checks
 
-# Authentication
-NEXTAUTH_SECRET=...
-NEXTAUTH_URL=...
-
-# AI Service
-OPENAI_API_KEY=...
+```bash
+npm run lint
+npm test
 ```
+
+---
+
+## Local Data Flow
+
+This MVP intentionally uses local browser storage to simulate end-to-end product behavior.
+
+1. Teacher saves active task.
+2. Student world reads active task on entry.
+3. Student chooses style.
+4. Local asset generator produces themed hotbar assets.
+5. Student places/edit objects.
+6. Build summary updates and is exposed to Teacher/Parent views.
+
+### `localStorage` Keys
+
+- `rocky_role`, `rocky_name`: session identity.
+- `rocky_active_task`: active teacher mission.
+- `rocky_build_summary`: latest student build state snapshot.
+
+---
+
+## Repository Structure (Key Paths)
+
+```text
+src/
+  app/
+    page.tsx                      # role entry
+    world/page.tsx                # student world
+    teacher/page.tsx              # teacher dashboard
+    parent/page.tsx               # parent dashboard
+  components/
+    auth/
+      role-entry.tsx
+      role-guard.tsx
+    ai/
+      ai-companion.tsx            # subtitle + ask mode
+      ai-companion-3d.tsx         # clickable Rocky
+      rocky-speech-bubble.tsx     # comic bubble overlay
+    world/
+      world-scene.tsx             # world orchestration + HUD
+      creative-build-area.tsx     # grid board, snapping, object selection/edit
+      floating-island.tsx
+  lib/
+    mock-auth.ts
+    tasks.ts
+    asset-generator.ts
+    build-state.ts
+    companion-script.ts
+```
+
+---
+
+## Engineering Principles Used
+
+- Keep role boundaries explicit in UI and routes.
+- Keep 3D rendering and product logic separated.
+- Use local scripted logic for deterministic MVP behavior.
+- Prefer incremental refactors over architecture resets.
+- Keep child-facing language short, warm, and encouraging.
+
+---
+
+## Known MVP Limitations
+
+- No real backend authentication.
+- No cloud database or multi-device sync.
+- No real LLM or text-to-3D integration.
+- No collaborative multiplayer mode.
+
+These are intentional trade-offs for demo speed and product validation.
+
+---
+
+## Recommended Next Steps
+
+1. Move task/build/session state from localStorage to backend APIs.
+2. Add persistent student profiles and classroom-scoped data.
+3. Add undo/redo history for build edits.
+4. Add richer asset thumbnails and placement effects.
+5. Add analytics for mission completion and creativity signals.
+
+---
+
+## Pending Features (To Implement)
+
+The items below are confirmed product requirements to be implemented next.
+
+### Teacher Side
+
+1. **Publish assignments**
+   - Provide a complete task publishing workflow for teachers.
+2. **View and open student submissions**
+   - Teachers can view student homework/submissions by task.
+   - Teachers can open a student's submission and enter that student's 3D world for review.
+
+### Student Side
+
+1. **Canvas lifecycle**
+   - Create a new canvas.
+   - Open/switch between different canvases.
+2. **In-canvas gameplay and AI improvements**
+   - Improve gameplay feel inside canvas (building flow and interaction smoothness).
+   - Improve AI functionality in the build experience (guidance quality and relevance).
+3. **Guide AI polish**
+   - Improve guide AI appearance (character visual quality).
+   - Improve guide AI interaction experience (timing, trigger clarity, usability).
+
+### Priority Guidance
+
+- First priority: teacher task -> student submission -> teacher review loop.
+- Second priority: student multi-canvas workflow.
+- Third priority: gameplay and AI experience polish.
+
+---
 
 ## Contributing
 
-1. Follow the established patterns and principles
-2. Write tests for new logic
-3. Keep components focused and modular
-4. Update documentation for API changes
-5. Ensure AI responses are child-safe
+1. Keep PRs focused and reviewable.
+2. Preserve role-based product logic.
+3. Run lint/tests before submitting.
+4. Update README when behavior or architecture changes.
 
-## Next Steps After MVP
+---
 
-1. **Real Database Integration**: Replace mock data with PostgreSQL
-2. **Authentication System**: Implement NextAuth.js for role-based access
-3. **AI Integration**: Connect to OpenAI API with safety guardrails
-4. **Multiplayer Features**: Add real-time collaboration
-5. **Advanced Analytics**: Progress tracking and learning insights
-6. **Mobile Optimization**: Responsive 3D scenes for tablets
-7. **Content Management**: Teacher tools for creating challenges
+## License
+
+Hackathon MVP repository. Add a formal license before public distribution.
