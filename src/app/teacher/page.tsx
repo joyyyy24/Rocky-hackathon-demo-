@@ -1,47 +1,40 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   getStudentsWithProgress,
   getClassSummary,
-  getChallenges,
   getRecentActivity,
 } from "@/lib/teacher-data";
 import { SummaryCard } from "@/components/teacher/summary-card";
 import { StudentList } from "@/components/teacher/student-list";
 import { RecentActivity } from "@/components/teacher/recent-activity";
-import { StudentDetailModal } from "@/components/teacher/student-detail-modal";
 import { StudentWithProgress } from "@/lib/teacher-data";
 import { RoleGuard } from "@/components/auth/role-guard";
 import { CreativeTask, defaultCreativeTask, getActiveTask, saveActiveTask } from "@/lib/tasks";
 import { getBuildSummary } from "@/lib/build-state";
+import { getPublishedWorlds, WorldSnapshot } from "@/lib/world-storage";
 
 export default function TeacherPage() {
-  const [selectedStudent, setSelectedStudent] =
-    useState<StudentWithProgress | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const router = useRouter();
   const [taskDraft, setTaskDraft] = useState<CreativeTask>(defaultCreativeTask);
   const [isSaved, setIsSaved] = useState(false);
   const [latestBuild, setLatestBuild] = useState(getBuildSummary());
+  const [publishedWorlds, setPublishedWorlds] = useState<WorldSnapshot[]>([]);
 
   const students = getStudentsWithProgress();
   const summary = getClassSummary();
-  const challenges = getChallenges();
   const activities = getRecentActivity();
 
   const handleStudentClick = (student: StudentWithProgress) => {
-    setSelectedStudent(student);
-    setIsModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setSelectedStudent(null);
+    router.push(`/teacher/review/${student.student.id}`);
   };
 
   useEffect(() => {
     setTaskDraft(getActiveTask());
     setLatestBuild(getBuildSummary());
+    setPublishedWorlds(getPublishedWorlds());
   }, []);
 
   const handleSaveTask = () => {
@@ -167,6 +160,37 @@ export default function TeacherPage() {
             </div>
           </div>
 
+          <div className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
+            <h2 className="text-xl font-bold text-gray-900 mb-3">Published Student Worlds</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {publishedWorlds.length === 0 && (
+                <p className="text-sm text-gray-600">
+                  No published worlds yet. Students can publish from the world editor.
+                </p>
+              )}
+              {publishedWorlds.slice(0, 6).map((world) => (
+                <div
+                  key={world.id}
+                  className="rounded-xl border border-slate-200 p-3 flex items-center justify-between"
+                >
+                  <div>
+                    <p className="font-semibold text-gray-900">{world.ownerName}</p>
+                    <p className="text-xs text-gray-600">
+                      {world.style || "No style"} • {world.placedAssets.length} objects
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/world/view/${world.id}`)}
+                    className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+                  >
+                    Open World
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
         {/* Summary Cards */}
         <div className="mb-8">
           <SummaryCard summary={summary} />
@@ -188,13 +212,6 @@ export default function TeacherPage() {
           </div>
         </div>
 
-          {/* Student Detail Modal */}
-          <StudentDetailModal
-            studentWithProgress={selectedStudent}
-            challenges={challenges}
-            isOpen={isModalOpen}
-            onClose={handleCloseModal}
-          />
         </div>
       </div>
     </RoleGuard>

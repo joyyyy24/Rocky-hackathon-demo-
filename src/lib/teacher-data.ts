@@ -87,3 +87,8 @@ export function getRecentActivity(limit: number = 10): Array<{
 
   return activities
 }
+
+export function getStudentById(studentId: string): StudentWithProgress | null {
+  const all = getStudentsWithProgress()
+  return all.find((entry) => entry.student.id === studentId) || null
+}

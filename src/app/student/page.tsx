@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,15 +12,21 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { RoleGuard } from "@/components/auth/role-guard";
+import { getPublishedWorlds, WorldSnapshot } from "@/lib/world-storage";
 
 export default function StudentPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [publishedWorlds, setPublishedWorlds] = useState<WorldSnapshot[]>([]);
 
   const handleGoToWorld = () => {
     setIsLoading(true);
     router.push("/world");
   };
+
+  useEffect(() => {
+    setPublishedWorlds(getPublishedWorlds());
+  }, []);
 
   return (
     <RoleGuard requiredRole="student">
@@ -34,6 +41,34 @@ export default function StudentPage() {
               Science mission and unlock more zones.
             </p>
           </div>
+
+        <div className="mt-8 mb-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">Published Worlds</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {publishedWorlds.length === 0 && (
+              <Card>
+                <CardContent className="pt-6 text-sm text-gray-600">
+                  No published worlds yet. Publish from Student World to share.
+                </CardContent>
+              </Card>
+            )}
+            {publishedWorlds.slice(0, 4).map((world) => (
+              <Card key={world.id} className="hover:shadow-medium transition-shadow">
+                <CardHeader>
+                  <CardTitle>{world.ownerName}&apos;s World</CardTitle>
+                  <CardDescription>
+                    Style: {world.style || "Not set"} • {world.placedAssets.length} objects
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild className="w-full">
+                    <Link href={`/world/view/${world.id}`}>Open World</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           <Card className="hover:shadow-medium transition-shadow">

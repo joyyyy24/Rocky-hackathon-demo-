@@ -23,9 +23,6 @@ export default function AICompanion({ subtitle, onAskRocky }: AICompanionProps) 
       <div
         className="pointer-events-none absolute top-4 left-1/2 z-20 w-[92%] max-w-3xl -translate-x-1/2 rounded-2xl border border-cyan-200/35 bg-slate-950/75 px-4 py-3 text-center text-sm font-medium text-cyan-50 backdrop-blur-md transition-opacity duration-300"
       >
-        <div className="text-xs tracking-widest uppercase text-cyan-200/80 mb-1">
-          Rocky says
-        </div>
         <p className="text-base">{subtitle}</p>
       </div>
 

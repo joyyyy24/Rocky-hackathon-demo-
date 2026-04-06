@@ -200,6 +200,9 @@ The items below are confirmed product requirements to be implemented next.
 
 1. **Publish assignments**
    - Provide a complete task publishing workflow for teachers.
+   - Required fields: `title`, `description`, `prompt`, `theme examples`, `due date` (optional for MVP).
+   - Support `draft` -> `published` -> `archived` states.
+   - Show a student-facing preview before publishing.
 2. **View and open student submissions**
    - Teachers can view student homework/submissions by task.
    - Teachers can open a student's submission and enter that student's 3D world for review.
@@ -209,6 +212,8 @@ The items below are confirmed product requirements to be implemented next.
 1. **Canvas lifecycle**
    - Create a new canvas.
    - Open/switch between different canvases.
+   - Canvas list should show: canvas name, task name, updated time, and completion badge.
+   - Student can duplicate and rename a canvas for iteration.
 2. **In-canvas gameplay and AI improvements**
    - Improve gameplay feel inside canvas (building flow and interaction smoothness).
    - Improve AI functionality in the build experience (guidance quality and relevance).

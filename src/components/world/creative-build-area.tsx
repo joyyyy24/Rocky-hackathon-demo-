@@ -16,6 +16,7 @@ export interface PlacedAsset {
 }
 
 interface CreativeBuildAreaProps {
+  readOnly?: boolean;
   selectedAsset: BuildAsset | null;
   placedAssets: PlacedAsset[];
   selectedPlacedAssetId: string | null;
@@ -173,6 +174,7 @@ function AssetMesh({ asset }: { asset: BuildAsset }) {
 }
 
 export function CreativeBuildArea({
+  readOnly = false,
   selectedAsset,
   placedAssets,
   selectedPlacedAssetId,
@@ -213,12 +215,14 @@ export function CreativeBuildArea({
         position={[0, -0.21, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
         onPointerMove={(event) => {
+          if (readOnly) return;
           const snappedX = snapToGrid(event.point.x);
           const snappedZ = snapToGrid(event.point.z);
           setHoveredCellWorld([snappedX, snappedZ]);
         }}
         onPointerOut={() => setHoveredCellWorld(null)}
         onClick={(event) => {
+          if (readOnly) return;
           const snappedX = snapToGrid(event.point.x);
           const snappedZ = snapToGrid(event.point.z);
           const pos = new Vector3(snappedX, -0.1, snappedZ);
@@ -229,7 +233,7 @@ export function CreativeBuildArea({
         <meshBasicMaterial transparent opacity={0} />
       </mesh>
 
-      {selectedAsset && hoveredCellWorld && (
+      {!readOnly && selectedAsset && hoveredCellWorld && (
         <group position={ghostPosition}>
           <group position={[hoveredCellWorld[0], 0, hoveredCellWorld[1]]}>
             <AssetMesh asset={selectedAsset} />
@@ -244,7 +248,7 @@ export function CreativeBuildArea({
         </group>
       )}
 
-      {hoveredCellWorld && (
+      {!readOnly && hoveredCellWorld && (
         <mesh
           position={[hoveredCellWorld[0], -0.19, hoveredCellWorld[1]]}
           rotation={[-Math.PI / 2, 0, 0]}
@@ -261,11 +265,13 @@ export function CreativeBuildArea({
           scale={[placed.scale, placed.scale, placed.scale]}
           rotation={[0, placed.rotationY, 0]}
           onClick={(event) => {
-            event.stopPropagation();
-            onSelectPlacedAsset(placed.id);
+            if (!readOnly) {
+              event.stopPropagation();
+              onSelectPlacedAsset(placed.id);
+            }
           }}
         >
-          {selectedPlacedAssetId === placed.id && (
+          {!readOnly && selectedPlacedAssetId === placed.id && (
             <>
               <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.06, 0]}>
                 <ringGeometry args={[0.58, 0.72, 28]} />

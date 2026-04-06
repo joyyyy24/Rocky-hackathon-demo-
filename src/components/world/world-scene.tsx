@@ -19,6 +19,12 @@ import {
 } from "@/lib/companion-script";
 import { getBuildSummary, saveBuildSummary } from "@/lib/build-state";
 import { Vector3 } from "three";
+import {
+  loadCurrentStudentDraft,
+  publishCurrentStudentWorld,
+  saveCurrentStudentDraft,
+  type WorldSnapshot,
+} from "@/lib/world-storage";
 
 function getAssetPreviewEmoji(type: BuildAsset["type"]): string {
   switch (type) {
@@ -56,7 +62,17 @@ function shortAssetName(name: string): string {
   return `${name.slice(0, 10)}…`;
 }
 
-export default function WorldScene() {
+interface WorldSceneProps {
+  reviewMode?: boolean;
+  reviewStudentName?: string;
+  initialSnapshot?: WorldSnapshot | null;
+}
+
+export default function WorldScene({
+  reviewMode = false,
+  reviewStudentName = "",
+  initialSnapshot = null,
+}: WorldSceneProps) {
   const [subtitle, setSubtitle] = useState("Rocky is waking up...");
   const [taskTitle, setTaskTitle] = useState("");
   const [taskPrompt, setTaskPrompt] = useState("");
@@ -75,6 +91,8 @@ export default function WorldScene() {
   const [rockyBubbleMessage, setRockyBubbleMessage] = useState(
     "What if we add one magical detail here?",
   );
+  const [saveLabel, setSaveLabel] = useState("Save");
+  const [publishLabel, setPublishLabel] = useState("Publish");
 
   useEffect(() => {
     const task = getActiveTask();
@@ -85,10 +103,37 @@ export default function WorldScene() {
     setSelectedStyle(summary.style);
     setStyleInput(summary.style);
     setSubtitle(getIntroLine(task));
+    if (initialSnapshot) {
+      setSelectedStyle(initialSnapshot.style);
+      setStyleInput(initialSnapshot.style);
+      setAssets(generateAssetSet(initialSnapshot.style || "default"));
+      setPlacedAssets(
+        initialSnapshot.placedAssets.map((item) => ({
+          ...item,
+          position: new Vector3(item.position.x, item.position.y, item.position.z),
+        })),
+      );
+      return;
+    }
+
     if (summary.style) {
       setAssets(generateAssetSet(summary.style));
     }
-  }, []);
+
+    const draft = loadCurrentStudentDraft();
+    if (draft && !reviewMode) {
+      setSelectedStyle(draft.style);
+      setStyleInput(draft.style);
+      setAssets(generateAssetSet(draft.style || "default"));
+      setPlacedAssets(
+        draft.placedAssets.map((item) => ({
+          ...item,
+          position: new Vector3(item.position.x, item.position.y, item.position.z),
+        })),
+      );
+      setSubtitle("Welcome back! Your canvas has been restored.");
+    }
+  }, [initialSnapshot, reviewMode]);
 
   const persistSummary = (
     next: Partial<{
@@ -195,6 +240,7 @@ export default function WorldScene() {
   };
 
   const handleScaleChange = (delta: number) => {
+    if (reviewMode) return;
     if (!selectedPlacedAsset) return;
     let updatedScale = selectedPlacedAsset.scale + delta;
     updatedScale = Math.max(0.5, Math.min(2, Number(updatedScale.toFixed(2))));
@@ -203,6 +249,7 @@ export default function WorldScene() {
   };
 
   const handleRotateSelected = () => {
+    if (reviewMode) return;
     if (!selectedPlacedAsset) return;
     updateSelectedPlacedAsset((asset) => ({
       ...asset,
@@ -212,6 +259,7 @@ export default function WorldScene() {
   };
 
   const handleDeleteSelected = () => {
+    if (reviewMode) return;
     if (!selectedPlacedAsset) return;
     const next = placedAssets.filter((asset) => asset.id !== selectedPlacedAsset.id);
     setPlacedAssets(next);
@@ -222,6 +270,37 @@ export default function WorldScene() {
       latestObject: next[next.length - 1]?.asset.label || "None yet",
       completionStatus: next.length === 0 ? "not-started" : "in-progress",
     });
+  };
+
+  const handleSaveWorld = () => {
+    if (reviewMode) return;
+    saveCurrentStudentDraft({
+      title: "My Creative Canvas",
+      taskTitle: taskTitle || "Creative Mission",
+      style: selectedStyle,
+      placedAssets: placedAssets.map((item) => ({
+        ...item,
+        position: {
+          x: item.position.x,
+          y: item.position.y,
+          z: item.position.z,
+        },
+      })),
+    });
+    setSaveLabel("Saved");
+    setTimeout(() => setSaveLabel("Save"), 1200);
+    setSubtitle("Great! Your world is saved. You can continue next time.");
+  };
+
+  const handlePublishWorld = () => {
+    if (reviewMode) return;
+    handleSaveWorld();
+    const published = publishCurrentStudentWorld();
+    if (published) {
+      setPublishLabel("Published");
+      setTimeout(() => setPublishLabel("Publish"), 1200);
+      setSubtitle("Amazing! Your world is now published for teachers and classmates.");
+    }
   };
 
   const showRockyIdea = (nextIndex: number) => {
@@ -245,7 +324,7 @@ export default function WorldScene() {
   };
 
   return (
-    <div className="relative w-full h-screen">
+    <div className="relative w-full h-full overflow-hidden">
       <Canvas camera={{ position: [10.5, 11, 10.5], fov: 52 }}>
         <Suspense fallback={null}>
           {/* Soft global illumination */}
@@ -264,6 +343,7 @@ export default function WorldScene() {
 
           <FloatingIsland />
           <CreativeBuildArea
+            readOnly={reviewMode}
             selectedAsset={selectedAsset}
             placedAssets={placedAssets}
             selectedPlacedAssetId={selectedPlacedAssetId}
@@ -275,7 +355,7 @@ export default function WorldScene() {
             onDeleteSelected={handleDeleteSelected}
           />
           <AICompanion3D
-            position={[3.8, 1.8, 3.8]}
+            position={[6.2, 1.8, 3.6]}
             isActive={true}
             onRockyClick={handleRockyClick}
           />
@@ -297,86 +377,116 @@ export default function WorldScene() {
         <p className="text-xs uppercase tracking-wider text-cyan-200 mb-1">Today&apos;s Mission</p>
         <h3 className="text-lg font-bold">{taskTitle || "Creative Mission"}</h3>
         <p className="text-sm text-slate-200 mt-1">{taskPrompt}</p>
+        {reviewMode && (
+          <p className="mt-2 text-xs font-semibold text-amber-200">
+            Read-only review for {reviewStudentName || "selected student"}
+          </p>
+        )}
       </div>
 
-      <div className="absolute left-1/2 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+8.1rem)] z-30 w-[min(860px,95vw)] -translate-x-1/2 rounded-2xl border border-cyan-200/30 bg-slate-900/78 px-3 py-2 text-white backdrop-blur-md">
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            value={styleInput}
-            onChange={(event) => setStyleInput(event.target.value)}
-            placeholder="Style idea: Egyptian style"
-            className="h-9 min-w-[180px] flex-1 rounded-lg border border-slate-600 bg-slate-800 px-3 text-xs outline-none focus:ring-2 focus:ring-cyan-400/50"
-          />
-          <button
-            type="button"
-            onClick={handleApplyStyle}
-            className="h-9 rounded-lg bg-cyan-500 px-3 text-xs font-semibold text-slate-950 hover:bg-cyan-400"
-          >
-            Apply Style
-          </button>
-          <input
-            value={customRequest}
-            onChange={(event) => setCustomRequest(event.target.value)}
-            placeholder="Add request: tall gate..."
-            className="h-9 min-w-[170px] flex-1 rounded-lg border border-slate-600 bg-slate-800 px-3 text-xs outline-none focus:ring-2 focus:ring-cyan-400/40"
-          />
-          <button
-            type="button"
-            onClick={handleRefreshAssets}
-            className="h-9 rounded-lg bg-cyan-500 px-3 text-xs font-semibold text-slate-950 hover:bg-cyan-400"
-          >
-            Add
-          </button>
-        </div>
-        <p className="mt-1 px-1 text-[11px] text-slate-300">
-          Current style: {selectedStyle || "Not set"}
-        </p>
-      </div>
-
-      <div className="absolute left-1/2 bottom-[max(0.9rem,env(safe-area-inset-bottom))] z-30 w-[min(880px,96vw)] -translate-x-1/2 rounded-2xl border border-cyan-200/30 bg-slate-950/72 px-2 py-2 backdrop-blur-md">
-        <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1">
-          {assets.slice(0, 10).map((asset) => (
+      {!reviewMode && (
+        <div className="absolute left-1/2 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+8.1rem)] z-30 w-[min(860px,95vw)] -translate-x-1/2 rounded-2xl border border-cyan-200/30 bg-slate-900/78 px-3 py-2 text-white backdrop-blur-md">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={styleInput}
+              onChange={(event) => setStyleInput(event.target.value)}
+              placeholder="Style idea: Egyptian style"
+              className="h-9 min-w-[180px] flex-1 rounded-lg border border-slate-600 bg-slate-800 px-3 text-xs outline-none focus:ring-2 focus:ring-cyan-400/50"
+            />
             <button
-              key={asset.id}
               type="button"
-              onClick={() => setSelectedAsset(asset)}
-              title={asset.label}
-              className={`group flex min-w-[76px] flex-col items-center ${
-                selectedAsset?.id === asset.id ? "scale-[1.02]" : ""
-              } transition-transform`}
+              onClick={handleApplyStyle}
+              className="h-9 rounded-lg bg-cyan-500 px-3 text-xs font-semibold text-slate-950 hover:bg-cyan-400"
             >
-              <span
-                className={`flex h-[62px] w-[62px] items-center justify-center rounded-xl border text-2xl shadow-inner transition-all ${
-                  selectedAsset?.id === asset.id
-                    ? "border-cyan-300 bg-cyan-400/20 shadow-[0_0_18px_rgba(56,189,248,0.35)]"
-                    : "border-slate-500/80 bg-slate-800/80 group-hover:border-cyan-400/55 group-hover:bg-slate-700/90"
-                }`}
-                style={{
-                  backgroundImage: `linear-gradient(135deg, ${asset.color}33, ${asset.accent}40)`,
-                }}
-              >
-                {getAssetPreviewEmoji(asset.type)}
-              </span>
-              <span
-                className={`mt-1 max-w-[70px] truncate text-center text-[11px] font-semibold ${
-                  selectedAsset?.id === asset.id ? "text-cyan-100" : "text-slate-200"
-                }`}
-              >
-                {shortAssetName(asset.label)}
-              </span>
+              Apply Style
             </button>
-          ))}
+            <input
+              value={customRequest}
+              onChange={(event) => setCustomRequest(event.target.value)}
+              placeholder="Add request: tall gate..."
+              className="h-9 min-w-[170px] flex-1 rounded-lg border border-slate-600 bg-slate-800 px-3 text-xs outline-none focus:ring-2 focus:ring-cyan-400/40"
+            />
+            <button
+              type="button"
+              onClick={handleRefreshAssets}
+              className="h-9 rounded-lg bg-cyan-500 px-3 text-xs font-semibold text-slate-950 hover:bg-cyan-400"
+            >
+              Add
+            </button>
+          </div>
+          <p className="mt-1 px-1 text-[11px] text-slate-300">
+            Current style: {selectedStyle || "Not set"}
+          </p>
         </div>
-      </div>
+      )}
 
-      <button
-        type="button"
-        onClick={handleRefreshAssets}
-        className="absolute left-1/2 bottom-[calc(max(0.9rem,env(safe-area-inset-bottom))+5.8rem)] z-30 ml-[min(440px,47vw)] flex h-[42px] min-w-[42px] -translate-x-1/2 items-center justify-center rounded-xl border border-cyan-300/50 bg-cyan-500/15 text-cyan-100 shadow-[0_0_12px_rgba(56,189,248,0.2)] transition-all hover:bg-cyan-400/25"
-        title="Refresh assets"
-      >
-        <span className="text-lg leading-none">↻</span>
-      </button>
+      {!reviewMode && (
+        <div className="absolute right-4 top-20 z-30 flex items-center gap-2 rounded-xl border border-cyan-200/30 bg-slate-900/82 p-2 backdrop-blur-md">
+          <button
+            type="button"
+            onClick={handleSaveWorld}
+            className="h-9 rounded-lg border border-emerald-300/50 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-100 hover:bg-emerald-400/25"
+          >
+            {saveLabel}
+          </button>
+          <button
+            type="button"
+            onClick={handlePublishWorld}
+            className="h-9 rounded-lg border border-violet-300/50 bg-violet-500/15 px-3 text-xs font-semibold text-violet-100 hover:bg-violet-400/25"
+          >
+            {publishLabel}
+          </button>
+        </div>
+      )}
+
+      {!reviewMode && (
+        <div className="absolute left-1/2 bottom-[max(0.9rem,env(safe-area-inset-bottom))] z-30 w-[min(880px,96vw)] -translate-x-1/2 rounded-2xl border border-cyan-200/30 bg-slate-950/72 px-2 py-2 backdrop-blur-md">
+          <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1">
+            {assets.slice(0, 10).map((asset) => (
+              <button
+                key={asset.id}
+                type="button"
+                onClick={() => setSelectedAsset(asset)}
+                title={asset.label}
+                className={`group flex min-w-[76px] flex-col items-center ${
+                  selectedAsset?.id === asset.id ? "scale-[1.02]" : ""
+                } transition-transform`}
+              >
+                <span
+                  className={`flex h-[62px] w-[62px] items-center justify-center rounded-xl border text-2xl shadow-inner transition-all ${
+                    selectedAsset?.id === asset.id
+                      ? "border-cyan-300 bg-cyan-400/20 shadow-[0_0_18px_rgba(56,189,248,0.35)]"
+                      : "border-slate-500/80 bg-slate-800/80 group-hover:border-cyan-400/55 group-hover:bg-slate-700/90"
+                  }`}
+                  style={{
+                    backgroundImage: `linear-gradient(135deg, ${asset.color}33, ${asset.accent}40)`,
+                  }}
+                >
+                  {getAssetPreviewEmoji(asset.type)}
+                </span>
+                <span
+                  className={`mt-1 max-w-[70px] truncate text-center text-[11px] font-semibold ${
+                    selectedAsset?.id === asset.id ? "text-cyan-100" : "text-slate-200"
+                  }`}
+                >
+                  {shortAssetName(asset.label)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!reviewMode && (
+        <button
+          type="button"
+          onClick={handleRefreshAssets}
+          className="absolute left-1/2 bottom-[calc(max(0.9rem,env(safe-area-inset-bottom))+5.8rem)] z-30 ml-[min(440px,47vw)] flex h-[42px] min-w-[42px] -translate-x-1/2 items-center justify-center rounded-xl border border-cyan-300/50 bg-cyan-500/15 text-cyan-100 shadow-[0_0_12px_rgba(56,189,248,0.2)] transition-all hover:bg-cyan-400/25"
+          title="Refresh assets"
+        >
+          <span className="text-lg leading-none">↻</span>
+        </button>
+      )}
 
       <AICompanion subtitle={subtitle} onAskRocky={handleAskRocky} />
       <RockySpeechBubble
