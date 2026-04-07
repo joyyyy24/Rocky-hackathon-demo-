@@ -35,6 +35,16 @@ const CELL_SIZE = 1;
 const BOARD_SIZE = GRID_CELLS * CELL_SIZE;
 const HALF_BOARD = BOARD_SIZE / 2;
 
+function toWorldFromGrid(gridIndex: number) {
+  return gridIndex - HALF_BOARD + 0.5;
+}
+
+function getSnappedGridCoords(worldX: number, worldZ: number) {
+  const gridX = toGridIndex(snapToGrid(worldX));
+  const gridZ = toGridIndex(snapToGrid(worldZ));
+  return { gridX, gridZ };
+}
+
 function snapToGrid(value: number) {
   const clamped = Math.max(-HALF_BOARD + 0.5, Math.min(HALF_BOARD - 0.5, value));
   return Math.round(clamped / CELL_SIZE) * CELL_SIZE;
@@ -335,13 +345,13 @@ export function CreativeBuildArea({
   onDeleteSelected,
   onCloseSelected,
 }: CreativeBuildAreaProps) {
-  const [hoveredCellWorld, setHoveredCellWorld] = useState<[number, number] | null>(
+  const [hoveredCell, setHoveredCell] = useState<{ gridX: number; gridZ: number } | null>(
     null,
   );
-  const getPreviewGridY = (snappedX: number, snappedZ: number) => {
+
+  const getPreviewGridY = (gridX: number, gridZ: number) => {
     if (!selectedAsset || selectedAsset.id !== "core-build-block") return 0;
-    const gridX = toGridIndex(snappedX);
-    const gridZ = toGridIndex(snappedZ);
+
     return placedAssets.filter(
       (item) =>
         item.gridX === gridX &&
@@ -376,34 +386,35 @@ export function CreativeBuildArea({
         rotation={[-Math.PI / 2, 0, 0]}
         onPointerMove={(event) => {
           if (readOnly) return;
-          const snappedX = snapToGrid(event.point.x);
-          const snappedZ = snapToGrid(event.point.z);
-          setHoveredCellWorld([snappedX, snappedZ]);
+          const { gridX, gridZ } = getSnappedGridCoords(event.point.x, event.point.z);
+          setHoveredCell({ gridX, gridZ });
         }}
-        onPointerOut={() => setHoveredCellWorld(null)}
+        onPointerOut={() => setHoveredCell(null)}
         onClick={(event) => {
           if (readOnly) return;
-          const snappedX = snapToGrid(event.point.x);
-          const snappedZ = snapToGrid(event.point.z);
-          onPlaceAsset(toGridIndex(snappedX), toGridIndex(snappedZ));
+          const { gridX, gridZ } = getSnappedGridCoords(event.point.x, event.point.z);
+          onPlaceAsset(gridX, gridZ);
         }}
       >
         <planeGeometry args={[BOARD_SIZE, BOARD_SIZE]} />
         <meshBasicMaterial transparent opacity={0} />
       </mesh>
 
-      {!readOnly && selectedAsset && hoveredCellWorld && (
+      {!readOnly && selectedAsset && hoveredCell && (
         (() => {
-          const previewGridY = getPreviewGridY(hoveredCellWorld[0], hoveredCellWorld[1]);
+          const previewGridY = getPreviewGridY(hoveredCell.gridX, hoveredCell.gridZ);
+          const previewX = toWorldFromGrid(hoveredCell.gridX);
+          const previewZ = toWorldFromGrid(hoveredCell.gridZ);
           const previewY = -0.1 + previewGridY;
+
           return (
             <group>
-              <group position={[hoveredCellWorld[0], previewY, hoveredCellWorld[1]]}>
+              <group position={[previewX, previewY, previewZ]}>
                 <AssetMesh asset={selectedAsset} />
               </group>
               <mesh
                 rotation={[-Math.PI / 2, 0, 0]}
-                position={[hoveredCellWorld[0], previewY - 0.04, hoveredCellWorld[1]]}
+                position={[previewX, previewY - 0.04, previewZ]}
               >
                 <ringGeometry args={[0.36, 0.48, 24]} />
                 <meshBasicMaterial color="#7dd3fc" transparent opacity={0.7} />
@@ -413,9 +424,13 @@ export function CreativeBuildArea({
         })()
       )}
 
-      {!readOnly && hoveredCellWorld && (
+      {!readOnly && hoveredCell && (
         <mesh
-          position={[hoveredCellWorld[0], -0.19, hoveredCellWorld[1]]}
+          position={[
+            toWorldFromGrid(hoveredCell.gridX),
+            -0.19,
+            toWorldFromGrid(hoveredCell.gridZ),
+          ]}
           rotation={[-Math.PI / 2, 0, 0]}
         >
           <planeGeometry args={[0.92, 0.92]} />
@@ -448,17 +463,17 @@ export function CreativeBuildArea({
                 distanceFactor={10}
               >
                 <div
-                  className="min-w-[270px] rounded-2xl border border-cyan-200/35 bg-[#18253f]/96 px-3 py-2 text-white shadow-[0_12px_26px_rgba(2,6,23,0.46)] backdrop-blur-md"
+                  className="min-w-[260px] rounded-2xl border border-cyan-200/35 bg-slate-900/88 px-3 py-2 text-white shadow-[0_10px_22px_rgba(15,23,42,0.35)] backdrop-blur-md"
                   onPointerDown={(event) => event.stopPropagation()}
                 >
                   <div className="mb-2 flex items-center justify-between gap-3">
-                    <p className="text-xs font-bold text-cyan-100">
+                    <p className="text-xs font-semibold text-cyan-100">
                       Selected: {placed.asset.label}
                     </p>
                     <button
                       type="button"
                       onClick={onCloseSelected}
-                      className="h-6 w-6 rounded-md border border-cyan-300/45 bg-slate-700/60 text-xs font-bold text-cyan-100 hover:bg-slate-600/75"
+                      className="h-6 w-6 rounded-md border border-cyan-300/40 bg-cyan-500/10 text-xs font-bold text-cyan-100 hover:bg-cyan-400/20"
                       title="Close panel"
                     >
                       ×
@@ -468,18 +483,18 @@ export function CreativeBuildArea({
                     <button
                       type="button"
                       onClick={onScaleDownSelected}
-                      className="h-8 w-8 rounded-lg border border-slate-300/35 bg-slate-700/80 text-sm font-bold text-slate-100 hover:bg-slate-600/85"
+                      className="h-8 w-8 rounded-lg border border-slate-500 bg-slate-800 text-sm font-bold hover:bg-slate-700"
                       title="Scale down"
                     >
                       -
                     </button>
-                    <span className="min-w-[74px] text-center text-xs font-semibold text-slate-100">
+                    <span className="min-w-[74px] text-center text-xs">
                       Scale {placed.scale.toFixed(1)}x
                     </span>
                     <button
                       type="button"
                       onClick={onScaleUpSelected}
-                      className="h-8 w-8 rounded-lg border border-slate-300/35 bg-slate-700/80 text-sm font-bold text-slate-100 hover:bg-slate-600/85"
+                      className="h-8 w-8 rounded-lg border border-slate-500 bg-slate-800 text-sm font-bold hover:bg-slate-700"
                       title="Scale up"
                     >
                       +
@@ -487,7 +502,7 @@ export function CreativeBuildArea({
                     <button
                       type="button"
                       onClick={onRotateSelected}
-                      className="rounded-lg border border-cyan-300/55 bg-slate-700/80 px-2 py-1 text-xs font-bold text-cyan-100 hover:bg-slate-600/85"
+                      className="rounded-lg border border-cyan-300/50 bg-cyan-500/15 px-2 py-1 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/25"
                       title="Rotate 90 degrees"
                     >
                       Rotate
@@ -495,7 +510,7 @@ export function CreativeBuildArea({
                     <button
                       type="button"
                       onClick={onDeleteSelected}
-                      className="rounded-lg border border-rose-300/55 bg-rose-500/25 px-2 py-1 text-xs font-bold text-rose-100 hover:bg-rose-500/35"
+                      className="rounded-lg border border-rose-300/50 bg-rose-500/15 px-2 py-1 text-xs font-semibold text-rose-100 hover:bg-rose-400/25"
                       title="Delete selected object"
                     >
                       Delete
