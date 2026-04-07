@@ -25,41 +25,190 @@ import {
   saveCurrentStudentDraft,
   type WorldSnapshot,
 } from "@/lib/world-storage";
-
-function getAssetPreviewEmoji(type: BuildAsset["type"]): string {
-  switch (type) {
-    case "block":
-      return "🧱";
-    case "column":
-      return "🏛️";
-    case "roof":
-      return "🔺";
-    case "torch":
-      return "🔥";
-    case "tree":
-      return "🌴";
-    case "gate":
-      return "🚪";
-    case "stairs":
-      return "🪜";
-    case "banner":
-      return "🏳️";
-    case "statue":
-      return "🗿";
-    case "pond":
-      return "💧";
-    case "rock":
-      return "🪨";
-    case "tower":
-      return "🗼";
-    default:
-      return "✨";
-  }
-}
+import type { StylePack } from "@/lib/ai-asset-pipeline";
 
 function shortAssetName(name: string): string {
   if (name.length <= 11) return name;
   return `${name.slice(0, 10)}…`;
+}
+
+interface AssetApiResponse {
+  assets?: BuildAsset[];
+  stylePack?: StylePack;
+  fallback?: boolean;
+}
+
+async function generateAssetsWithAI(
+  style: string,
+  customRequest = "",
+  existingAssets: BuildAsset[] = [],
+  mode: "apply" | "add" | "refresh" = "refresh",
+  stylePack?: StylePack | null,
+): Promise<AssetApiResponse | null> {
+  const refreshNonce = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  const response = await fetch("/api/assets", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      style,
+      customRequest,
+      mode,
+      count: 10,
+      refreshNonce,
+      stylePack: stylePack || undefined,
+      existingAssets: existingAssets.map((asset) => ({
+        id: asset.id,
+        label: asset.label,
+        type: asset.type,
+        category: asset.category,
+        silhouette: asset.silhouette,
+      })),
+    }),
+  });
+
+  if (!response.ok) return null;
+  const data = (await response.json()) as AssetApiResponse;
+  if (!Array.isArray(data.assets) || data.assets.length === 0) return null;
+  return data;
+}
+
+function HotbarAssetPreview({ asset }: { asset: BuildAsset }) {
+  const baseStyle = { backgroundColor: asset.color };
+  const accentStyle = { backgroundColor: asset.accent };
+  const label = asset.label.toLowerCase();
+  const previewKey = (asset.previewShape || asset.templateKey || asset.type).toLowerCase();
+
+  const columnPreview = (() => {
+    if (label.includes("obelisk") || label.includes("spire") || label.includes("minaret")) {
+      return <div className="h-11 w-2 rounded-full shadow" style={baseStyle} />;
+    }
+    if (label.includes("pillar") || label.includes("colonnade") || label.includes("portico")) {
+      return <div className="h-6 w-5 rounded-md shadow" style={baseStyle} />;
+    }
+    return <div className="h-9 w-3 rounded-full shadow" style={baseStyle} />;
+  })();
+
+  const shapeByType: Record<BuildAsset["type"], JSX.Element> = {
+    block: <div className="h-8 w-8 rounded-sm shadow" style={baseStyle} />,
+    column: columnPreview,
+    roof: (
+      <div
+        className="h-0 w-0 border-l-[14px] border-r-[14px] border-b-[24px] border-l-transparent border-r-transparent shadow"
+        style={{ borderBottomColor: asset.color }}
+      />
+    ),
+    torch: (
+      <div className="relative h-9 w-3">
+        <div className="absolute bottom-0 left-1/2 h-7 w-[3px] -translate-x-1/2 rounded" style={baseStyle} />
+        <div className="absolute left-1/2 top-0 h-3 w-3 -translate-x-1/2 rounded-full" style={accentStyle} />
+      </div>
+    ),
+    tree: (
+      <div className="relative h-10 w-8">
+        <div className="absolute bottom-0 left-1/2 h-4 w-2 -translate-x-1/2 rounded" style={{ backgroundColor: "#7a5f3b" }} />
+        <div className="absolute left-1/2 top-0 h-6 w-6 -translate-x-1/2 rounded-full" style={baseStyle} />
+      </div>
+    ),
+    gate: (
+      <div className="relative h-8 w-9 rounded-sm shadow" style={baseStyle}>
+        <div className="absolute bottom-0 left-1/2 h-5 w-4 -translate-x-1/2 rounded-t-sm bg-slate-900/45" />
+      </div>
+    ),
+    stairs: (
+      <div className="relative h-8 w-9">
+        <div className="absolute bottom-0 h-3 w-9 rounded-sm shadow" style={baseStyle} />
+        <div className="absolute bottom-3 left-1 h-2 w-7 rounded-sm shadow" style={accentStyle} />
+        <div className="absolute bottom-5 left-2 h-2 w-5 rounded-sm shadow" style={baseStyle} />
+      </div>
+    ),
+    banner: (
+      <div className="relative h-10 w-8">
+        <div className="absolute bottom-0 left-2 h-9 w-[2px] bg-amber-900/70" />
+        <div className="absolute left-3 top-2 h-5 w-4 rounded-sm shadow" style={accentStyle} />
+      </div>
+    ),
+    statue: (
+      <div className="relative h-9 w-8">
+        <div className="absolute bottom-0 h-4 w-8 rounded-sm shadow" style={baseStyle} />
+        <div className="absolute left-1/2 top-0 h-4 w-4 -translate-x-1/2 rounded-full shadow" style={accentStyle} />
+      </div>
+    ),
+    pond: (
+      <div className="h-7 w-9 rounded-full border border-white/20 shadow" style={baseStyle} />
+    ),
+    rock: (
+      <div className="h-8 w-8 rounded-[35%] shadow" style={baseStyle} />
+    ),
+    tower: (
+      <div className="relative h-10 w-8">
+        <div className="absolute bottom-0 left-1/2 h-7 w-4 -translate-x-1/2 rounded-sm shadow" style={baseStyle} />
+        <div
+          className="absolute left-1/2 top-0 h-0 w-0 -translate-x-1/2 border-l-[8px] border-r-[8px] border-b-[12px] border-l-transparent border-r-transparent"
+          style={{ borderBottomColor: asset.accent }}
+        />
+      </div>
+    ),
+  };
+
+  const previewByTemplate: Record<string, JSX.Element> = {
+    "gate-arch": (
+      <div className="relative h-9 w-10 rounded-t-full border-b-4 border-slate-900/40" style={baseStyle}>
+        <div className="absolute bottom-0 left-1/2 h-5 w-5 -translate-x-1/2 rounded-t-full bg-slate-900/35" />
+      </div>
+    ),
+    "roof-layered": (
+      <div className="relative h-9 w-10">
+        <div className="absolute bottom-0 h-3 w-10 rounded-sm" style={baseStyle} />
+        <div className="absolute bottom-3 left-1 h-3 w-8 rounded-sm" style={accentStyle} />
+        <div className="absolute bottom-6 left-2 h-2 w-6 rounded-sm" style={baseStyle} />
+      </div>
+    ),
+    "roof-curved": (
+      <div className="h-6 w-10 rounded-t-[999px] border-b-4 border-slate-900/30" style={baseStyle} />
+    ),
+    "tower-square": (
+      <div className="relative h-10 w-9">
+        <div className="absolute bottom-0 left-1/2 h-7 w-5 -translate-x-1/2 rounded-sm" style={baseStyle} />
+        <div className="absolute left-1/2 top-0 h-3 w-7 -translate-x-1/2 rounded-sm" style={accentStyle} />
+      </div>
+    ),
+    "tree-cluster": (
+      <div className="relative h-10 w-10">
+        <div className="absolute bottom-0 left-1/2 h-3 w-2 -translate-x-1/2 rounded bg-amber-900/80" />
+        <div className="absolute left-1 top-1 h-5 w-5 rounded-full" style={baseStyle} />
+        <div className="absolute right-1 top-0 h-5 w-5 rounded-full" style={accentStyle} />
+      </div>
+    ),
+    "banner-double": (
+      <div className="relative h-10 w-9">
+        <div className="absolute bottom-0 left-2 h-9 w-[2px] bg-amber-900/70" />
+        <div className="absolute bottom-0 right-2 h-9 w-[2px] bg-amber-900/70" />
+        <div className="absolute left-3 top-2 h-3 w-2 rounded-sm" style={baseStyle} />
+        <div className="absolute right-3 top-4 h-3 w-2 rounded-sm" style={accentStyle} />
+      </div>
+    ),
+    "bridge-ceremonial": (
+      <div className="relative h-9 w-11">
+        <div className="absolute bottom-1 left-0 h-3 w-11 rounded-full border-2 border-slate-900/35" style={baseStyle} />
+        <div className="absolute bottom-0 left-1/2 h-2 w-5 -translate-x-1/2 rounded-sm" style={accentStyle} />
+      </div>
+    ),
+    "lantern-post": (
+      <div className="relative h-10 w-6">
+        <div className="absolute bottom-0 left-1/2 h-8 w-[3px] -translate-x-1/2 rounded" style={baseStyle} />
+        <div className="absolute left-1/2 top-0 h-4 w-4 -translate-x-1/2 rounded-md border border-amber-100/40" style={accentStyle} />
+      </div>
+    ),
+  };
+
+  return (
+    <div
+      className="flex h-full w-full items-center justify-center rounded-md"
+      style={{ boxShadow: `inset 0 0 0 2px ${asset.accent}66` }}
+    >
+      {previewByTemplate[previewKey] || shapeByType[asset.type]}
+    </div>
+  );
 }
 
 interface WorldSceneProps {
@@ -93,6 +242,13 @@ export default function WorldScene({
   );
   const [saveLabel, setSaveLabel] = useState("Save");
   const [publishLabel, setPublishLabel] = useState("Publish");
+  const [isMissionVisible, setIsMissionVisible] = useState(true);
+  const [isApplyingStyle, setIsApplyingStyle] = useState(false);
+  const [isAddingAssets, setIsAddingAssets] = useState(false);
+  const [isRefreshingAssets, setIsRefreshingAssets] = useState(false);
+  const [isAskingRocky, setIsAskingRocky] = useState(false);
+  const [activeStylePack, setActiveStylePack] = useState<StylePack | null>(null);
+  const [recentHistoryAssets, setRecentHistoryAssets] = useState<BuildAsset[]>([]);
 
   useEffect(() => {
     const task = getActiveTask();
@@ -158,42 +314,164 @@ export default function WorldScene({
     });
   };
 
-  const handleApplyStyle = () => {
+  const handleApplyStyle = async () => {
+    if (isApplyingStyle || isRefreshingAssets || isAddingAssets) return;
     const style = styleInput.trim();
     if (!style) {
       setSubtitle("Tell me a style first, like Egyptian, Jungle, or Fantasy!");
       return;
     }
-    const nextAssets = generateAssetSet(style);
+
+    setIsApplyingStyle(true);
+    setSubtitle("Rocky is crafting new materials from your style...");
+    let nextAssets = generateAssetSet(style);
+    let nextStylePack: StylePack | null = null;
+    try {
+      const result = await generateAssetsWithAI(
+        style,
+        "",
+        [...assets, ...recentHistoryAssets],
+        "apply",
+        null,
+      );
+      if (result?.assets?.length) {
+        nextAssets = result.assets;
+        nextStylePack = result.stylePack || null;
+      }
+    } catch {
+      // Keep local fallback generation.
+    } finally {
+      setIsApplyingStyle(false);
+    }
+
     setSelectedStyle(style);
+    setActiveStylePack(nextStylePack);
     setAssets(nextAssets);
     setSelectedAsset(nextAssets[0] || null);
+    setRecentHistoryAssets((prev) => [...nextAssets, ...prev].slice(0, 40));
     const line = getStyleLine(style);
     setSubtitle(line);
     persistSummary({ style, latestRockyLine: line, completionStatus: "in-progress" });
   };
 
-  const handleRefreshAssets = () => {
+  const handleAddAssets = async () => {
+    if (isAddingAssets || isRefreshingAssets || isApplyingStyle) return;
     if (!selectedStyle) {
       setSubtitle("Pick a style first and I will gather matching materials!");
       return;
     }
-    const refreshed = generateAssetSet(selectedStyle, customRequest);
+
+    setIsAddingAssets(true);
+    setSubtitle("Rocky is composing a new themed object pack...");
+    const prompt = customRequest.trim();
+    let refreshed = generateAssetSet(selectedStyle, prompt);
+    let nextStylePack = activeStylePack;
+    try {
+      const result = await generateAssetsWithAI(
+        selectedStyle,
+        prompt,
+        [...assets, ...recentHistoryAssets],
+        "add",
+        activeStylePack,
+      );
+      if (result?.assets?.length) {
+        refreshed = result.assets;
+        nextStylePack = result.stylePack || nextStylePack;
+      }
+    } catch {
+      // Keep local fallback generation.
+    } finally {
+      setIsAddingAssets(false);
+    }
+
+    setActiveStylePack(nextStylePack);
     setAssets(refreshed);
     setSelectedAsset(refreshed[0] || null);
-    setSubtitle("Fresh materials ready! Choose one and place it in your world.");
+    setRecentHistoryAssets((prev) => [...refreshed, ...prev].slice(0, 40));
+    setSubtitle(
+      prompt
+        ? `New ${selectedStyle} variations for "${prompt}" are ready.`
+        : "New themed assets are ready.",
+    );
   };
 
-  const handleAskRocky = (question: string) => {
-    const line = getAskLine(question, selectedStyle);
-    setSubtitle(line);
-    const recommendedAssets = generateAssetSet(selectedStyle || "default", question);
-    setAssets(recommendedAssets);
-    persistSummary({
-      latestRockyLine: line,
-      reflections: getBuildSummary().reflections + 1,
-      completionStatus: "in-progress",
-    });
+  const handleRefreshAssets = async () => {
+    if (isRefreshingAssets || isApplyingStyle || isAddingAssets) return;
+    if (!selectedStyle) {
+      setSubtitle("Pick a style first and I will gather matching materials!");
+      return;
+    }
+
+    setIsRefreshingAssets(true);
+    setSubtitle("Refreshing variants... keeping style, changing silhouettes.");
+    let refreshed = generateAssetSet(selectedStyle, customRequest);
+    try {
+      const result = await generateAssetsWithAI(
+        selectedStyle,
+        customRequest,
+        [...assets, ...recentHistoryAssets],
+        "refresh",
+        activeStylePack,
+      );
+      if (result?.assets?.length) {
+        refreshed = result.assets;
+        setActiveStylePack(result.stylePack || activeStylePack);
+      }
+    } catch {
+      // Keep local fallback generation.
+    } finally {
+      setIsRefreshingAssets(false);
+    }
+
+    setAssets(refreshed);
+    setSelectedAsset(refreshed[0] || null);
+    setRecentHistoryAssets((prev) => [...refreshed, ...prev].slice(0, 40));
+    setSubtitle("Fresh style-consistent variants ready. Choose one and build.");
+  };
+
+  const handleAskRocky = async (question: string) => {
+    if (isAskingRocky) return;
+    setIsAskingRocky(true);
+    const fallbackLine = getAskLine(question, selectedStyle);
+    setSubtitle("Rocky is thinking...");
+
+    let line = fallbackLine;
+    try {
+      const response = await fetch("/api/rocky", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          question,
+          style: selectedStyle,
+          taskTitle,
+          taskPrompt,
+        }),
+      });
+
+      if (response.ok) {
+        const data = (await response.json()) as { reply?: string };
+        if (data.reply?.trim()) {
+          line = data.reply.trim();
+        }
+      }
+    } catch {
+      // Keep local fallback line when network/API is unavailable.
+    }
+
+    try {
+      setSubtitle(line);
+      const recommendedAssets = generateAssetSet(selectedStyle || "default", question);
+      setAssets(recommendedAssets);
+      persistSummary({
+        latestRockyLine: line,
+        reflections: getBuildSummary().reflections + 1,
+        completionStatus: "in-progress",
+      });
+    } finally {
+      setIsAskingRocky(false);
+    }
   };
 
   const handlePlaceAsset = (gridX: number, gridZ: number, position: Vector3) => {
@@ -373,16 +651,26 @@ export default function WorldScene({
         </Suspense>
       </Canvas>
 
-      <div className="absolute left-4 top-20 z-20 w-[min(420px,90vw)] rounded-2xl border border-cyan-200/30 bg-slate-900/75 p-4 text-white backdrop-blur">
-        <p className="text-xs uppercase tracking-wider text-cyan-200 mb-1">Today&apos;s Mission</p>
-        <h3 className="text-lg font-bold">{taskTitle || "Creative Mission"}</h3>
-        <p className="text-sm text-slate-200 mt-1">{taskPrompt}</p>
-        {reviewMode && (
-          <p className="mt-2 text-xs font-semibold text-amber-200">
-            Read-only review for {reviewStudentName || "selected student"}
-          </p>
-        )}
-      </div>
+      {isMissionVisible && (
+        <div className="absolute left-4 top-20 z-20 w-[min(420px,90vw)] rounded-2xl border border-cyan-200/30 bg-slate-900/75 p-4 pr-12 text-white backdrop-blur">
+          <button
+            type="button"
+            onClick={() => setIsMissionVisible(false)}
+            aria-label="Close mission reminder"
+            className="absolute right-3 top-3 h-8 w-8 rounded-lg border border-cyan-200/30 bg-slate-800/85 text-cyan-100 transition hover:bg-slate-700"
+          >
+            ×
+          </button>
+          <p className="mb-1 text-xs uppercase tracking-wider text-cyan-200">Today&apos;s Mission</p>
+          <h3 className="text-lg font-bold">{taskTitle || "Creative Mission"}</h3>
+          <p className="mt-1 text-sm text-slate-200">{taskPrompt}</p>
+          {reviewMode && (
+            <p className="mt-2 text-xs font-semibold text-amber-200">
+              Read-only review for {reviewStudentName || "selected student"}
+            </p>
+          )}
+        </div>
+      )}
 
       {!reviewMode && (
         <div className="absolute left-1/2 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+8.1rem)] z-30 w-[min(860px,95vw)] -translate-x-1/2 rounded-2xl border border-cyan-200/30 bg-slate-900/78 px-3 py-2 text-white backdrop-blur-md">
@@ -396,9 +684,10 @@ export default function WorldScene({
             <button
               type="button"
               onClick={handleApplyStyle}
-              className="h-9 rounded-lg bg-cyan-500 px-3 text-xs font-semibold text-slate-950 hover:bg-cyan-400"
+              disabled={isApplyingStyle || isRefreshingAssets || isAddingAssets}
+              className="h-9 rounded-lg bg-cyan-500 px-3 text-xs font-semibold text-slate-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:bg-cyan-700 disabled:text-slate-200"
             >
-              Apply Style
+              {isApplyingStyle ? "Applying..." : "Apply Style"}
             </button>
             <input
               value={customRequest}
@@ -408,10 +697,11 @@ export default function WorldScene({
             />
             <button
               type="button"
-              onClick={handleRefreshAssets}
-              className="h-9 rounded-lg bg-cyan-500 px-3 text-xs font-semibold text-slate-950 hover:bg-cyan-400"
+              onClick={handleAddAssets}
+              disabled={isAddingAssets || isRefreshingAssets || isApplyingStyle}
+              className="h-9 rounded-lg bg-cyan-500 px-3 text-xs font-semibold text-slate-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:bg-cyan-700 disabled:text-slate-200"
             >
-              Add
+              {isAddingAssets ? "Adding..." : "Add"}
             </button>
           </div>
           <p className="mt-1 px-1 text-[11px] text-slate-300">
@@ -453,16 +743,20 @@ export default function WorldScene({
                 } transition-transform`}
               >
                 <span
-                  className={`flex h-[62px] w-[62px] items-center justify-center rounded-xl border text-2xl shadow-inner transition-all ${
+                  className={`flex h-[62px] w-[62px] items-center justify-center overflow-hidden rounded-xl border text-2xl shadow-inner transition-all ${
                     selectedAsset?.id === asset.id
                       ? "border-cyan-300 bg-cyan-400/20 shadow-[0_0_18px_rgba(56,189,248,0.35)]"
                       : "border-slate-500/80 bg-slate-800/80 group-hover:border-cyan-400/55 group-hover:bg-slate-700/90"
                   }`}
-                  style={{
-                    backgroundImage: `linear-gradient(135deg, ${asset.color}33, ${asset.accent}40)`,
-                  }}
                 >
-                  {getAssetPreviewEmoji(asset.type)}
+                  <div
+                    className="h-full w-full"
+                    style={{
+                      backgroundImage: `linear-gradient(135deg, ${asset.color}33, ${asset.accent}40)`,
+                    }}
+                  >
+                    <HotbarAssetPreview asset={asset} />
+                  </div>
                 </span>
                 <span
                   className={`mt-1 max-w-[70px] truncate text-center text-[11px] font-semibold ${
@@ -481,14 +775,21 @@ export default function WorldScene({
         <button
           type="button"
           onClick={handleRefreshAssets}
-          className="absolute left-1/2 bottom-[calc(max(0.9rem,env(safe-area-inset-bottom))+5.8rem)] z-30 ml-[min(440px,47vw)] flex h-[42px] min-w-[42px] -translate-x-1/2 items-center justify-center rounded-xl border border-cyan-300/50 bg-cyan-500/15 text-cyan-100 shadow-[0_0_12px_rgba(56,189,248,0.2)] transition-all hover:bg-cyan-400/25"
+          disabled={isRefreshingAssets || isApplyingStyle || isAddingAssets}
+          className="absolute left-1/2 bottom-[calc(max(0.9rem,env(safe-area-inset-bottom))+5.8rem)] z-30 ml-[min(440px,47vw)] flex h-[42px] min-w-[42px] -translate-x-1/2 items-center justify-center rounded-xl border border-cyan-300/50 bg-cyan-500/15 text-cyan-100 shadow-[0_0_12px_rgba(56,189,248,0.2)] transition-all hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-55"
           title="Refresh assets"
         >
-          <span className="text-lg leading-none">↻</span>
+          <span className={`text-lg leading-none ${isRefreshingAssets ? "animate-spin" : ""}`}>
+            ↻
+          </span>
         </button>
       )}
 
-      <AICompanion subtitle={subtitle} onAskRocky={handleAskRocky} />
+      <AICompanion
+        subtitle={subtitle}
+        onAskRocky={handleAskRocky}
+        isAskingRocky={isAskingRocky}
+      />
       <RockySpeechBubble
         visible={isRockyBubbleOpen}
         message={rockyBubbleMessage}

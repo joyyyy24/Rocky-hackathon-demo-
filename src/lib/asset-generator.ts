@@ -16,6 +16,13 @@ export interface BuildAsset {
     | "tower";
   color: string;
   accent: string;
+  templateKey?: string;
+  category?: string;
+  silhouette?: string;
+  previewShape?: string;
+  ornaments?: string[];
+  sizeClass?: "small" | "medium" | "large";
+  material?: string;
 }
 
 const BASE_ASSETS: BuildAsset[] = [

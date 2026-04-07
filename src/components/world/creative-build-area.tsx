@@ -42,16 +42,49 @@ function toGridIndex(worldValue: number) {
   return Math.round(worldValue + HALF_BOARD - 0.5);
 }
 
-function AssetMesh({ asset }: { asset: BuildAsset }) {
+export function AssetMesh({ asset }: { asset: BuildAsset }) {
   switch (asset.type) {
-    case "column":
+    case "column": {
+      const l = asset.label.toLowerCase();
+      const tall = l.includes("obelisk") || l.includes("spire") || l.includes("minaret");
+      const wide = l.includes("pillar") || l.includes("colonnade") || l.includes("portico");
+      const rTop = tall ? 0.12 : wide ? 0.28 : 0.2;
+      const rBot = tall ? 0.14 : wide ? 0.32 : 0.24;
+      const h = tall ? 1.55 : wide ? 0.95 : 1.3;
       return (
         <mesh>
-          <cylinderGeometry args={[0.2, 0.24, 1.3, 8]} />
+          <cylinderGeometry args={[rTop, rBot, h, 8]} />
           <meshStandardMaterial color={asset.color} />
         </mesh>
       );
+    }
     case "roof":
+      if (asset.templateKey?.includes("layered")) {
+        return (
+          <group>
+            <mesh position={[0, 0.15, 0]}>
+              <cylinderGeometry args={[0.62, 0.72, 0.18, 4]} />
+              <meshStandardMaterial color={asset.color} />
+            </mesh>
+            <mesh position={[0, 0.35, 0]}>
+              <cylinderGeometry args={[0.45, 0.55, 0.18, 4]} />
+              <meshStandardMaterial color={asset.accent} />
+            </mesh>
+            <mesh position={[0, 0.55, 0]}>
+              <cylinderGeometry args={[0.28, 0.38, 0.16, 4]} />
+              <meshStandardMaterial color={asset.color} />
+            </mesh>
+          </group>
+        );
+      }
+      if (asset.templateKey?.includes("curved")) {
+        return (
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.45, 0.12, 10, 14, Math.PI]} />
+            <meshStandardMaterial color={asset.color} />
+          </mesh>
+        );
+      }
       return (
         <mesh>
           <coneGeometry args={[0.55, 0.8, 4]} />
@@ -72,6 +105,24 @@ function AssetMesh({ asset }: { asset: BuildAsset }) {
         </group>
       );
     case "tree":
+      if (asset.templateKey?.includes("cluster")) {
+        return (
+          <group>
+            <mesh position={[0, 0.4, 0]}>
+              <cylinderGeometry args={[0.08, 0.1, 0.8, 6]} />
+              <meshStandardMaterial color="#7a5f3b" />
+            </mesh>
+            <mesh position={[-0.18, 0.9, 0]}>
+              <sphereGeometry args={[0.24, 8, 8]} />
+              <meshStandardMaterial color={asset.color} />
+            </mesh>
+            <mesh position={[0.18, 0.96, 0.06]}>
+              <sphereGeometry args={[0.24, 8, 8]} />
+              <meshStandardMaterial color={asset.accent} />
+            </mesh>
+          </group>
+        );
+      }
       return (
         <group>
           <mesh position={[0, 0.45, 0]}>
@@ -85,6 +136,34 @@ function AssetMesh({ asset }: { asset: BuildAsset }) {
         </group>
       );
     case "gate":
+      if (asset.templateKey?.includes("wide")) {
+        return (
+          <group>
+            <mesh position={[0, 0.42, 0]}>
+              <boxGeometry args={[1.35, 0.84, 0.24]} />
+              <meshStandardMaterial color={asset.color} />
+            </mesh>
+            <mesh position={[0, 0.36, 0.13]}>
+              <boxGeometry args={[0.7, 0.45, 0.12]} />
+              <meshStandardMaterial color="#3f2f1a" />
+            </mesh>
+          </group>
+        );
+      }
+      if (asset.templateKey?.includes("tall")) {
+        return (
+          <group>
+            <mesh position={[0, 0.6, 0]}>
+              <boxGeometry args={[1.05, 1.2, 0.25]} />
+              <meshStandardMaterial color={asset.color} />
+            </mesh>
+            <mesh position={[0, 0.48, 0.14]}>
+              <boxGeometry args={[0.42, 0.68, 0.13]} />
+              <meshStandardMaterial color="#3f2f1a" />
+            </mesh>
+          </group>
+        );
+      }
       return (
         <group>
           <mesh position={[0, 0.45, 0]}>
@@ -98,6 +177,24 @@ function AssetMesh({ asset }: { asset: BuildAsset }) {
         </group>
       );
     case "stairs":
+      if (asset.templateKey?.includes("steep")) {
+        return (
+          <group>
+            <mesh position={[0, 0.15, 0]}>
+              <boxGeometry args={[1, 0.3, 0.95]} />
+              <meshStandardMaterial color={asset.color} />
+            </mesh>
+            <mesh position={[0, 0.36, -0.18]}>
+              <boxGeometry args={[0.74, 0.22, 0.64]} />
+              <meshStandardMaterial color={asset.accent} />
+            </mesh>
+            <mesh position={[0, 0.52, -0.29]}>
+              <boxGeometry args={[0.5, 0.16, 0.38]} />
+              <meshStandardMaterial color={asset.color} />
+            </mesh>
+          </group>
+        );
+      }
       return (
         <group>
           <mesh position={[0, 0.15, 0]}>
@@ -111,6 +208,28 @@ function AssetMesh({ asset }: { asset: BuildAsset }) {
         </group>
       );
     case "banner":
+      if (asset.templateKey?.includes("double")) {
+        return (
+          <group>
+            <mesh position={[-0.1, 0.55, 0]}>
+              <cylinderGeometry args={[0.03, 0.03, 1.1, 8]} />
+              <meshStandardMaterial color="#6e5432" />
+            </mesh>
+            <mesh position={[0.1, 0.55, 0]}>
+              <cylinderGeometry args={[0.03, 0.03, 1.1, 8]} />
+              <meshStandardMaterial color="#6e5432" />
+            </mesh>
+            <mesh position={[-0.22, 0.76, 0]}>
+              <boxGeometry args={[0.24, 0.3, 0.05]} />
+              <meshStandardMaterial color={asset.color} />
+            </mesh>
+            <mesh position={[0.22, 0.7, 0]}>
+              <boxGeometry args={[0.24, 0.3, 0.05]} />
+              <meshStandardMaterial color={asset.accent} />
+            </mesh>
+          </group>
+        );
+      }
       return (
         <group>
           <mesh position={[0, 0.55, 0]}>
@@ -124,6 +243,20 @@ function AssetMesh({ asset }: { asset: BuildAsset }) {
         </group>
       );
     case "statue":
+      if (asset.templateKey?.includes("guardian")) {
+        return (
+          <group>
+            <mesh position={[0, 0.22, 0]}>
+              <boxGeometry args={[0.9, 0.44, 0.9]} />
+              <meshStandardMaterial color={asset.color} />
+            </mesh>
+            <mesh position={[0, 0.7, 0]}>
+              <octahedronGeometry args={[0.23, 0]} />
+              <meshStandardMaterial color={asset.accent} />
+            </mesh>
+          </group>
+        );
+      }
       return (
         <group>
           <mesh position={[0, 0.25, 0]}>
@@ -151,6 +284,20 @@ function AssetMesh({ asset }: { asset: BuildAsset }) {
         </mesh>
       );
     case "tower":
+      if (asset.templateKey?.includes("square")) {
+        return (
+          <group>
+            <mesh position={[0, 0.8, 0]}>
+              <boxGeometry args={[0.62, 1.6, 0.62]} />
+              <meshStandardMaterial color={asset.color} />
+            </mesh>
+            <mesh position={[0, 1.8, 0]}>
+              <boxGeometry args={[0.72, 0.34, 0.72]} />
+              <meshStandardMaterial color={asset.accent} />
+            </mesh>
+          </group>
+        );
+      }
       return (
         <group>
           <mesh position={[0, 0.8, 0]}>

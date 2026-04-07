@@ -4,16 +4,21 @@ import { useState } from "react";
 
 interface AICompanionProps {
   subtitle: string;
-  onAskRocky: (question: string) => void;
+  onAskRocky: (question: string) => Promise<void>;
+  isAskingRocky?: boolean;
 }
 
-export default function AICompanion({ subtitle, onAskRocky }: AICompanionProps) {
+export default function AICompanion({
+  subtitle,
+  onAskRocky,
+  isAskingRocky = false,
+}: AICompanionProps) {
   const [isAskOpen, setIsAskOpen] = useState(false);
   const [question, setQuestion] = useState("");
 
-  const handleSubmitAsk = () => {
+  const handleSubmitAsk = async () => {
     if (!question.trim()) return;
-    onAskRocky(question.trim());
+    await onAskRocky(question.trim());
     setQuestion("");
     setIsAskOpen(false);
   };
@@ -30,9 +35,10 @@ export default function AICompanion({ subtitle, onAskRocky }: AICompanionProps) 
         <button
           type="button"
           onClick={() => setIsAskOpen(true)}
-          className="rounded-full border border-cyan-200/50 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-50 shadow-md transition-all hover:bg-cyan-500/35"
+          disabled={isAskingRocky}
+          className="rounded-full border border-cyan-200/50 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-50 shadow-md transition-all hover:bg-cyan-500/35 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Ask Rocky
+          {isAskingRocky ? "Rocky Thinking..." : "Ask Rocky"}
         </button>
       </div>
 
@@ -61,9 +67,10 @@ export default function AICompanion({ subtitle, onAskRocky }: AICompanionProps) 
               <button
                 type="button"
                 onClick={handleSubmitAsk}
-                className="rounded-lg bg-cyan-500 px-3 py-1.5 text-sm font-semibold text-slate-950 hover:bg-cyan-400"
+                disabled={isAskingRocky || !question.trim()}
+                className="rounded-lg bg-cyan-500 px-3 py-1.5 text-sm font-semibold text-slate-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:bg-cyan-700 disabled:text-slate-200"
               >
-                Send to Rocky
+                {isAskingRocky ? "Sending..." : "Send to Rocky"}
               </button>
             </div>
           </div>
