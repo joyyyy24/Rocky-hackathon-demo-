@@ -37,6 +37,42 @@ function shortAssetName(name: string): string {
   return `${name.slice(0, 10)}…`;
 }
 
+const BLOCK_COLOR_SWATCHES = [
+  "#d6b36a",
+  "#b08ad9",
+  "#7ea3d8",
+  "#8bcf8a",
+  "#ef8aa1",
+  "#f59e0b",
+  "#22c55e",
+  "#0ea5e9",
+  "#6366f1",
+  "#f43f5e",
+  "#a3a3a3",
+  "#111827",
+];
+
+function buildCoreBlock(color: string): BuildAsset {
+  return {
+    id: "core-build-block",
+    label: "Build Block",
+    type: "block",
+    color,
+    accent: "#f3f4f6",
+    templateKey: "core_block",
+    category: "structure",
+    silhouette: "cube",
+    previewShape: "core-block",
+    sizeClass: "medium",
+    material: "stone",
+  };
+}
+
+function withCoreBlock(list: BuildAsset[], coreBlock: BuildAsset): BuildAsset[] {
+  const withoutCore = list.filter((item) => item.id !== coreBlock.id);
+  return [coreBlock, ...withoutCore].slice(0, 10);
+}
+
 interface AssetApiResponse {
   assets?: BuildAsset[];
   stylePack?: StylePack;
@@ -302,6 +338,7 @@ export default function WorldScene({
   const [selectedStyle, setSelectedStyle] = useState("");
   const [assets, setAssets] = useState<BuildAsset[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<BuildAsset | null>(null);
+  const [coreBlockColor, setCoreBlockColor] = useState("#d6b36a");
   const [customRequest, setCustomRequest] = useState("");
   const [placedAssets, setPlacedAssets] = useState<PlacedAsset[]>([]);
   const [selectedPlacedAssetId, setSelectedPlacedAssetId] = useState<string | null>(
@@ -322,11 +359,26 @@ export default function WorldScene({
   const [activeStylePack, setActiveStylePack] = useState<StylePack | null>(null);
   const [recentHistoryAssets, setRecentHistoryAssets] = useState<BuildAsset[]>([]);
   const [viewMode, setViewMode] = useState<"build" | "explore">("build");
+  const [showExploreHint, setShowExploreHint] = useState(false);
+  const [rockyPosition, setRockyPosition] = useState<[number, number, number]>([
+    6.2,
+    1.8,
+    3.6,
+  ]);
   const [socraticPrompt, setSocraticPrompt] = useState<string | null>(null);
   const [socraticIndex, setSocraticIndex] = useState(0);
   const [askedMilestones, setAskedMilestones] = useState<number[]>([]);
   const [friendsExpanded, setFriendsExpanded] = useState(false);
   const [classmateWorlds, setClassmateWorlds] = useState<WorldSnapshot[]>([]);
+
+  const hotbarAssets = [
+    ...assets.filter((asset) => asset.id === "core-build-block"),
+    ...assets.filter((asset) => asset.id !== "core-build-block"),
+  ].slice(0, 10);
+
+  const handleSelectHotbarAsset = (asset: BuildAsset) => {
+    setSelectedAsset(asset);
+  };
 
   useEffect(() => {
     const task = getActiveTask();
@@ -355,34 +407,46 @@ export default function WorldScene({
     if (initialSnapshot) {
       setSelectedStyle(initialSnapshot.style);
       setStyleInput(initialSnapshot.style);
-      setAssets(generateAssetSet(initialSnapshot.style || "default"));
+      setAssets(withCoreBlock(generateAssetSet(initialSnapshot.style || "default"), buildCoreBlock(coreBlockColor)));
       setPlacedAssets(
         initialSnapshot.placedAssets.map((item) => ({
           ...item,
           position: new Vector3(item.position.x, item.position.y, item.position.z),
+          gridY: item.gridY ?? 0,
         })),
       );
       return;
     }
 
     if (summary.style) {
-      setAssets(generateAssetSet(summary.style));
+      setAssets(withCoreBlock(generateAssetSet(summary.style), buildCoreBlock(coreBlockColor)));
     }
 
     const draft = loadCurrentStudentDraft();
     if (draft && !reviewMode) {
       setSelectedStyle(draft.style);
       setStyleInput(draft.style);
-      setAssets(generateAssetSet(draft.style || "default"));
+      setAssets(withCoreBlock(generateAssetSet(draft.style || "default"), buildCoreBlock(coreBlockColor)));
       setPlacedAssets(
         draft.placedAssets.map((item) => ({
           ...item,
           position: new Vector3(item.position.x, item.position.y, item.position.z),
+          gridY: item.gridY ?? 0,
         })),
       );
       setSubtitle("Welcome back! Your canvas has been restored.");
     }
-  }, [initialSnapshot, reviewMode]);
+  }, [coreBlockColor, initialSnapshot, reviewMode]);
+
+  useEffect(() => {
+    if (viewMode !== "explore" || reviewMode) {
+      setShowExploreHint(false);
+      return;
+    }
+    setShowExploreHint(true);
+    const timer = window.setTimeout(() => setShowExploreHint(false), 5000);
+    return () => window.clearTimeout(timer);
+  }, [reviewMode, viewMode]);
 
   const persistSummary = (
     next: Partial<{
@@ -439,8 +503,9 @@ export default function WorldScene({
 
     setSelectedStyle(style);
     setActiveStylePack(nextStylePack);
-    setAssets(nextAssets);
-    setSelectedAsset(nextAssets[0] || null);
+    const mergedAssets = withCoreBlock(nextAssets, buildCoreBlock(coreBlockColor));
+    setAssets(mergedAssets);
+    setSelectedAsset(mergedAssets[0] || null);
     setRecentHistoryAssets((prev) => [...nextAssets, ...prev].slice(0, 40));
     setAskedMilestones([]);
     setSocraticPrompt(null);
@@ -480,8 +545,9 @@ export default function WorldScene({
     }
 
     setActiveStylePack(nextStylePack);
-    setAssets(refreshed);
-    setSelectedAsset(refreshed[0] || null);
+    const mergedAssets = withCoreBlock(refreshed, buildCoreBlock(coreBlockColor));
+    setAssets(mergedAssets);
+    setSelectedAsset(mergedAssets[0] || null);
     setRecentHistoryAssets((prev) => [...refreshed, ...prev].slice(0, 40));
     setSubtitle(
       prompt
@@ -518,8 +584,9 @@ export default function WorldScene({
       setIsRefreshingAssets(false);
     }
 
-    setAssets(refreshed);
-    setSelectedAsset(refreshed[0] || null);
+    const mergedAssets = withCoreBlock(refreshed, buildCoreBlock(coreBlockColor));
+    setAssets(mergedAssets);
+    setSelectedAsset(mergedAssets[0] || null);
     setRecentHistoryAssets((prev) => [...refreshed, ...prev].slice(0, 40));
     setSubtitle("Fresh style-consistent variants ready. Choose one and build.");
   };
@@ -557,7 +624,10 @@ export default function WorldScene({
 
     try {
       setSubtitle(line);
-      const recommendedAssets = generateAssetSet(selectedStyle || "default", question);
+      const recommendedAssets = withCoreBlock(
+        generateAssetSet(selectedStyle || "default", question),
+        buildCoreBlock(coreBlockColor),
+      );
       setAssets(recommendedAssets);
       persistSummary({
         latestRockyLine: line,
@@ -588,21 +658,35 @@ export default function WorldScene({
     setAskedMilestones((prev) => [...prev, nextPlacedCount]);
   };
 
-  const handlePlaceAsset = (gridX: number, gridZ: number, position: Vector3) => {
+  const handlePlaceAsset = (gridX: number, gridZ: number) => {
     if (!selectedAsset) {
       setSubtitle("Choose one item from your library first!");
       return;
     }
-    if (placedAssets.some((item) => item.gridX === gridX && item.gridZ === gridZ)) {
+    const isCoreBlock = selectedAsset.id === "core-build-block";
+    const sameCell = placedAssets.filter((item) => item.gridX === gridX && item.gridZ === gridZ);
+    const cellHasNonBlocks = sameCell.some((item) => item.asset.id !== "core-build-block");
+
+    let gridY = 0;
+    if (isCoreBlock) {
+      if (cellHasNonBlocks) {
+        setSubtitle("This cell already has a special object. Try stacking blocks on an empty block column.");
+        return;
+      }
+      gridY = sameCell.filter((item) => item.asset.id === "core-build-block").length;
+    } else if (sameCell.length > 0) {
       setSubtitle("That spot is already taken. Which nearby cell should we try?");
       return;
     }
+
+    const pos = new Vector3(gridX - 5.5, -0.1 + gridY, gridZ - 5.5);
     const placed: PlacedAsset = {
       id: `${selectedAsset.id}-${Date.now()}`,
       asset: selectedAsset,
-      position,
+      position: pos,
       gridX,
       gridZ,
+      gridY,
       scale: 1,
       rotationY: 0,
     };
@@ -678,6 +762,7 @@ export default function WorldScene({
           y: item.position.y,
           z: item.position.z,
         },
+        gridY: item.gridY,
       })),
     });
     setSaveLabel("Saved");
@@ -746,11 +831,14 @@ export default function WorldScene({
             onScaleUpSelected={() => handleScaleChange(0.1)}
             onRotateSelected={handleRotateSelected}
             onDeleteSelected={handleDeleteSelected}
+            onCloseSelected={() => setSelectedPlacedAssetId(null)}
           />
           <AICompanion3D
-            position={[6.2, 1.8, 3.6]}
+            position={rockyPosition}
             isActive={true}
             onRockyClick={handleRockyClick}
+            draggable={!reviewMode}
+            onPositionChange={setRockyPosition}
           />
 
           {viewMode === "build" ? (
@@ -915,7 +1003,7 @@ export default function WorldScene({
         </div>
       )}
 
-      {!reviewMode && viewMode === "explore" && (
+      {!reviewMode && viewMode === "explore" && showExploreHint && (
         <div className="pointer-events-none absolute left-1/2 top-36 z-30 -translate-x-1/2 rounded-xl border border-cyan-300/30 bg-slate-950/70 px-3 py-2 text-xs text-cyan-100 backdrop-blur-sm">
           Explore Mode: click the 3D scene, move with WASD, press Esc to unlock mouse.
         </div>
@@ -924,11 +1012,11 @@ export default function WorldScene({
       {!reviewMode && (
         <div className="absolute left-1/2 bottom-[max(0.9rem,env(safe-area-inset-bottom))] z-30 w-[min(880px,96vw)] -translate-x-1/2 rounded-2xl border border-cyan-200/30 bg-slate-950/72 px-2 py-2 backdrop-blur-md">
           <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1">
-            {assets.slice(0, 10).map((asset) => (
+            {hotbarAssets.map((asset) => (
               <button
                 key={asset.id}
                 type="button"
-                onClick={() => setSelectedAsset(asset)}
+                onClick={() => handleSelectHotbarAsset(asset)}
                 title={asset.label}
                 className={`group flex min-w-[76px] flex-col items-center ${
                   selectedAsset?.id === asset.id ? "scale-[1.02]" : ""
@@ -959,6 +1047,34 @@ export default function WorldScene({
                 </span>
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {!reviewMode && selectedAsset?.id === "core-build-block" && (
+        <div className="absolute left-1/2 bottom-[calc(max(0.9rem,env(safe-area-inset-bottom))+5.8rem)] z-30 -translate-x-1/2 rounded-xl border border-cyan-200/30 bg-slate-900/85 px-3 py-2 backdrop-blur-md">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold text-cyan-100">Block Color</span>
+            <div className="flex items-center gap-1">
+              {BLOCK_COLOR_SWATCHES.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => {
+                    setCoreBlockColor(color);
+                    setAssets((prev) => withCoreBlock(prev, buildCoreBlock(color)));
+                    setSelectedAsset(buildCoreBlock(color));
+                  }}
+                  className={`h-5 w-5 rounded-full border transition ${
+                    coreBlockColor === color
+                      ? "border-white ring-2 ring-cyan-300/70"
+                      : "border-slate-300/60"
+                  }`}
+                  style={{ backgroundColor: color }}
+                  title={`Set block color ${color}`}
+                />
+              ))}
+            </div>
           </div>
         </div>
       )}

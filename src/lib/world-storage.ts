@@ -7,6 +7,7 @@ export interface StoredPlacedAsset {
   position: { x: number; y: number; z: number };
   gridX: number;
   gridZ: number;
+  gridY: number;
   scale: number;
   rotationY: number;
 }

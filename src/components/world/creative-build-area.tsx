@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Vector3 } from "three";
 import { BuildAsset } from "@/lib/asset-generator";
 import { Html } from "@react-three/drei";
@@ -11,6 +11,7 @@ export interface PlacedAsset {
   position: Vector3;
   gridX: number;
   gridZ: number;
+  gridY: number;
   scale: number;
   rotationY: number;
 }
@@ -20,12 +21,13 @@ interface CreativeBuildAreaProps {
   selectedAsset: BuildAsset | null;
   placedAssets: PlacedAsset[];
   selectedPlacedAssetId: string | null;
-  onPlaceAsset: (gridX: number, gridZ: number, position: Vector3) => void;
+  onPlaceAsset: (gridX: number, gridZ: number) => void;
   onSelectPlacedAsset: (assetId: string) => void;
   onScaleDownSelected: () => void;
   onScaleUpSelected: () => void;
   onRotateSelected: () => void;
   onDeleteSelected: () => void;
+  onCloseSelected: () => void;
 }
 
 const GRID_CELLS = 12;
@@ -331,11 +333,22 @@ export function CreativeBuildArea({
   onScaleUpSelected,
   onRotateSelected,
   onDeleteSelected,
+  onCloseSelected,
 }: CreativeBuildAreaProps) {
   const [hoveredCellWorld, setHoveredCellWorld] = useState<[number, number] | null>(
     null,
   );
-  const ghostPosition = useMemo(() => new Vector3(0, -0.1, 0), []);
+  const getPreviewGridY = (snappedX: number, snappedZ: number) => {
+    if (!selectedAsset || selectedAsset.id !== "core-build-block") return 0;
+    const gridX = toGridIndex(snappedX);
+    const gridZ = toGridIndex(snappedZ);
+    return placedAssets.filter(
+      (item) =>
+        item.gridX === gridX &&
+        item.gridZ === gridZ &&
+        item.asset.id === "core-build-block",
+    ).length;
+  };
 
   return (
     <group>
@@ -372,8 +385,7 @@ export function CreativeBuildArea({
           if (readOnly) return;
           const snappedX = snapToGrid(event.point.x);
           const snappedZ = snapToGrid(event.point.z);
-          const pos = new Vector3(snappedX, -0.1, snappedZ);
-          onPlaceAsset(toGridIndex(snappedX), toGridIndex(snappedZ), pos);
+          onPlaceAsset(toGridIndex(snappedX), toGridIndex(snappedZ));
         }}
       >
         <planeGeometry args={[BOARD_SIZE, BOARD_SIZE]} />
@@ -381,18 +393,24 @@ export function CreativeBuildArea({
       </mesh>
 
       {!readOnly && selectedAsset && hoveredCellWorld && (
-        <group position={ghostPosition}>
-          <group position={[hoveredCellWorld[0], 0, hoveredCellWorld[1]]}>
-            <AssetMesh asset={selectedAsset} />
-          </group>
-          <mesh
-            rotation={[-Math.PI / 2, 0, 0]}
-            position={[hoveredCellWorld[0], -0.04, hoveredCellWorld[1]]}
-          >
-            <ringGeometry args={[0.36, 0.48, 24]} />
-            <meshBasicMaterial color="#7dd3fc" transparent opacity={0.7} />
-          </mesh>
-        </group>
+        (() => {
+          const previewGridY = getPreviewGridY(hoveredCellWorld[0], hoveredCellWorld[1]);
+          const previewY = -0.1 + previewGridY;
+          return (
+            <group>
+              <group position={[hoveredCellWorld[0], previewY, hoveredCellWorld[1]]}>
+                <AssetMesh asset={selectedAsset} />
+              </group>
+              <mesh
+                rotation={[-Math.PI / 2, 0, 0]}
+                position={[hoveredCellWorld[0], previewY - 0.04, hoveredCellWorld[1]]}
+              >
+                <ringGeometry args={[0.36, 0.48, 24]} />
+                <meshBasicMaterial color="#7dd3fc" transparent opacity={0.7} />
+              </mesh>
+            </group>
+          );
+        })()
       )}
 
       {!readOnly && hoveredCellWorld && (
@@ -433,9 +451,19 @@ export function CreativeBuildArea({
                   className="min-w-[260px] rounded-2xl border border-cyan-200/35 bg-slate-900/88 px-3 py-2 text-white shadow-[0_10px_22px_rgba(15,23,42,0.35)] backdrop-blur-md"
                   onPointerDown={(event) => event.stopPropagation()}
                 >
-                  <p className="mb-2 text-xs font-semibold text-cyan-100">
-                    Selected: {placed.asset.label}
-                  </p>
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <p className="text-xs font-semibold text-cyan-100">
+                      Selected: {placed.asset.label}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={onCloseSelected}
+                      className="h-6 w-6 rounded-md border border-cyan-300/40 bg-cyan-500/10 text-xs font-bold text-cyan-100 hover:bg-cyan-400/20"
+                      title="Close panel"
+                    >
+                      ×
+                    </button>
+                  </div>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"

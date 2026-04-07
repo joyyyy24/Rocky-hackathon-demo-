@@ -1,21 +1,31 @@
 "use client";
 
 import { useMemo, useRef } from "react";
-import { Mesh } from "three";
-import { useFrame } from "@react-three/fiber";
+import { Mesh, Plane, Vector3 } from "three";
+import { ThreeEvent, useFrame } from "@react-three/fiber";
 
 interface AICompanion3DProps {
   position?: [number, number, number];
   isActive?: boolean;
   onRockyClick?: () => void;
+  draggable?: boolean;
+  onPositionChange?: (next: [number, number, number]) => void;
 }
 
 export function AICompanion3D({
   position = [3.8, 2.1, 3.8],
   isActive = true,
   onRockyClick,
+  draggable = false,
+  onPositionChange,
 }: AICompanion3DProps) {
   const meshRef = useRef<Mesh>(null);
+  const isDraggingRef = useRef(false);
+  const movedRef = useRef(false);
+  const dragPlane = useMemo(
+    () => new Plane(new Vector3(0, 1, 0), -position[1]),
+    [position],
+  );
   const particles = useMemo(
     () =>
       [
@@ -37,14 +47,52 @@ export function AICompanion3D({
 
   if (!isActive) return null;
 
+  const clampXZ = (x: number, z: number) => {
+    const clampedX = Math.max(-9.5, Math.min(9.5, x));
+    const clampedZ = Math.max(-9.5, Math.min(9.5, z));
+    return [clampedX, clampedZ] as const;
+  };
+
+  const handlePointerDown = (event: ThreeEvent<PointerEvent>) => {
+    if (!draggable) return;
+    event.stopPropagation();
+    isDraggingRef.current = true;
+    movedRef.current = false;
+    (event.target as Element).setPointerCapture?.(event.pointerId);
+  };
+
+  const handlePointerMove = (event: ThreeEvent<PointerEvent>) => {
+    if (!draggable || !isDraggingRef.current || !onPositionChange) return;
+    event.stopPropagation();
+    const hit = new Vector3();
+    const found = event.ray.intersectPlane(dragPlane, hit);
+    if (!found) return;
+    const [nextX, nextZ] = clampXZ(hit.x, hit.z);
+    const moved =
+      Math.abs(nextX - position[0]) > 0.02 || Math.abs(nextZ - position[2]) > 0.02;
+    if (moved) movedRef.current = true;
+    onPositionChange([nextX, position[1], nextZ]);
+  };
+
+  const handlePointerUp = (event: ThreeEvent<PointerEvent>) => {
+    if (!draggable) return;
+    event.stopPropagation();
+    isDraggingRef.current = false;
+    (event.target as Element).releasePointerCapture?.(event.pointerId);
+    if (!movedRef.current) {
+      onRockyClick?.();
+    }
+    movedRef.current = false;
+  };
+
   return (
     <mesh
       ref={meshRef}
       position={position}
-      onClick={(event) => {
-        event.stopPropagation();
-        onRockyClick?.();
-      }}
+      onClick={(event) => event.stopPropagation()}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
     >
       <group>
         <mesh position={[0, 0, 0]}>
