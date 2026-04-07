@@ -289,8 +289,8 @@ function FirstPersonRig({ enabled }: { enabled: boolean }) {
 
   useEffect(() => {
     if (!enabled) return;
-    camera.position.set(0, 1.8, 8.5);
-    camera.lookAt(0, 1.8, 0);
+    camera.position.set(0, 1.25, 8.5);
+    camera.lookAt(0, 1.25, 0);
   }, [camera, enabled]);
 
   useEffect(() => {
@@ -331,13 +331,13 @@ function FirstPersonRig({ enabled }: { enabled: boolean }) {
     camera.getWorldDirection(direction);
     direction.y = 0;
     direction.normalize();
-    const rightVec = new Vector3(direction.z, 0, -direction.x).normalize();
+    const rightVec = new Vector3(direction.z, 0, direction.x).normalize();
 
     camera.position.addScaledVector(direction, f * move);
     camera.position.addScaledVector(rightVec, s * move);
     camera.position.x = Math.max(-140, Math.min(140, camera.position.x));
     camera.position.z = Math.max(-140, Math.min(140, camera.position.z));
-    camera.position.y = 1.8;
+    camera.position.y = 1.25;
   });
 
   if (!enabled) return null;
