@@ -29,7 +29,6 @@ import {
 } from "@/lib/world-storage";
 import type { StylePack } from "@/lib/ai-asset-pipeline";
 import { getMockSession } from "@/lib/mock-auth";
-import { getSocraticPrompt } from "@/lib/socratic-prompts";
 import { getMockClassmateWorlds } from "@/lib/mock-classmate-worlds";
 
 function shortAssetName(name: string): string {
@@ -365,9 +364,6 @@ export default function WorldScene({
     1.8,
     3.6,
   ]);
-  const [socraticPrompt, setSocraticPrompt] = useState<string | null>(null);
-  const [socraticIndex, setSocraticIndex] = useState(0);
-  const [askedMilestones, setAskedMilestones] = useState<number[]>([]);
   const [friendsExpanded, setFriendsExpanded] = useState(false);
   const [friendsDocked, setFriendsDocked] = useState(false);
   const [classmateWorlds, setClassmateWorlds] = useState<WorldSnapshot[]>([]);
@@ -508,8 +504,6 @@ export default function WorldScene({
     setAssets(mergedAssets);
     setSelectedAsset(mergedAssets[0] || null);
     setRecentHistoryAssets((prev) => [...nextAssets, ...prev].slice(0, 40));
-    setAskedMilestones([]);
-    setSocraticPrompt(null);
     const line = getStyleLine(style);
     setSubtitle(line);
     persistSummary({ style, latestRockyLine: line, completionStatus: "in-progress" });
@@ -648,25 +642,6 @@ export default function WorldScene({
     return line;
   };
 
-  const maybeTriggerSocraticPrompt = (nextPlacedCount: number, latestObject?: string) => {
-    if (reviewMode) return;
-    const milestones = [1, 3, 5, 8];
-    if (!milestones.includes(nextPlacedCount)) return;
-    if (askedMilestones.includes(nextPlacedCount)) return;
-
-    const prompt = getSocraticPrompt(
-      {
-        style: selectedStyle,
-        placedCount: nextPlacedCount,
-        latestObject,
-      },
-      socraticIndex,
-    );
-    setSocraticPrompt(prompt);
-    setSocraticIndex((prev) => prev + 1);
-    setAskedMilestones((prev) => [...prev, nextPlacedCount]);
-  };
-
   const handlePlaceAsset = (gridX: number, gridZ: number) => {
     if (!selectedAsset) {
       setSubtitle("Choose one item from your library first!");
@@ -705,7 +680,6 @@ export default function WorldScene({
     setSelectedAsset(null);
     const line = getPlacementLine(selectedAsset.label, nextPlaced.length);
     setSubtitle(line);
-    maybeTriggerSocraticPrompt(nextPlaced.length, selectedAsset.label);
     persistSummary({
       objectsPlaced: nextPlaced.length,
       latestObject: selectedAsset.label,
@@ -890,26 +864,6 @@ export default function WorldScene({
               Read-only review for {reviewStudentName || "selected student"}
             </p>
           )}
-        </div>
-      )}
-
-      {!reviewMode && socraticPrompt && (
-        <div className="absolute left-4 top-[11.8rem] z-30 w-[min(430px,90vw)] rounded-2xl border border-amber-200/45 bg-[#1f2840]/96 p-5 pr-12 text-white shadow-[0_14px_34px_rgba(15,23,42,0.52)]">
-          <button
-            type="button"
-            onClick={() => setSocraticPrompt(null)}
-            aria-label="Close socratic prompt"
-            className="absolute right-3 top-3 h-8 w-8 rounded-lg border border-amber-200/30 bg-slate-800/90 text-amber-100 transition hover:bg-slate-700"
-          >
-            ×
-          </button>
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-amber-200">
-            Rocky Question
-          </p>
-          <p className="mt-2 text-sm font-medium leading-relaxed text-slate-100">{socraticPrompt}</p>
-          <p className="mt-2 text-xs font-medium text-amber-100/90">
-            Think first, then try your next build move.
-          </p>
         </div>
       )}
 
