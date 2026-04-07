@@ -37,14 +37,6 @@ const roleNavItems: Record<UserRole, NavItem[]> = {
       icon: "📋",
     },
   ],
-  parent: [
-    {
-      href: "/parent",
-      label: "Parent View",
-      description: "Read-only Progress",
-      icon: "🌟",
-    },
-  ],
 };
 
 export function Navigation() {
@@ -79,15 +71,15 @@ export function Navigation() {
   }
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-cyan-200/20 bg-slate-900/75 backdrop-blur-md">
+    <nav className="sticky top-0 z-50 border-b border-indigo-200/20 bg-[#18233d]/96 shadow-[0_8px_24px_rgba(7,12,28,0.38)] backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/40 pulse-glow">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-[0_0_14px_rgba(56,189,248,0.6)] pulse-glow">
                 <span className="text-white font-bold text-sm">R</span>
               </div>
-              <span className="font-bold text-xl text-white tracking-wide">Rocky</span>
+              <span className="font-bold text-xl text-slate-50 tracking-wide">Rocky</span>
             </Link>
           </div>
 
@@ -99,10 +91,10 @@ export function Navigation() {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex items-center space-x-2 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-200",
+                    "flex items-center space-x-2 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-200 border",
                     isActive
-                      ? "bg-gradient-to-r from-cyan-400/30 to-blue-500/30 text-cyan-100 border border-cyan-300/50 shadow-md shadow-cyan-500/20"
-                      : "text-slate-200 hover:text-white hover:bg-slate-700/60",
+                      ? "bg-gradient-to-r from-cyan-500/30 to-sky-500/25 text-sky-100 border-cyan-300/60 shadow-[0_0_14px_rgba(56,189,248,0.32)]"
+                      : "text-slate-100 border-slate-500/50 bg-slate-800/70 hover:text-white hover:border-cyan-300/45 hover:bg-slate-700/85",
                   )}
                 >
                   <span className="text-lg">{item.icon}</span>
@@ -112,7 +104,7 @@ export function Navigation() {
             })}
             <button
               type="button"
-              className="ml-2 rounded-xl border border-rose-300/40 bg-rose-500/10 px-3 py-2 text-sm font-semibold text-rose-100 transition-all duration-200 hover:bg-rose-500/20"
+              className="ml-2 rounded-xl border border-rose-300/50 bg-rose-500/20 px-3 py-2 text-sm font-semibold text-rose-50 transition-all duration-200 hover:bg-rose-500/35 hover:border-rose-300/70"
               onClick={handleLogout}
             >
               Logout
@@ -121,7 +113,7 @@ export function Navigation() {
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center">
-            <button className="p-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-700">
+            <button className="p-2 rounded-md text-slate-100 hover:text-white hover:bg-slate-700">
               <svg
                 className="w-6 h-6"
                 fill="none"
@@ -139,12 +131,12 @@ export function Navigation() {
           </div>
         </div>
         <div className="pb-2">
-          <p className="text-xs text-slate-300">
+          <p className="text-xs text-slate-100">
             Signed in as{" "}
-            <span className="font-semibold text-cyan-100">
+            <span className="font-semibold text-cyan-200">
               {userName || ROLE_LABELS[role]}
             </span>{" "}
-            ({ROLE_LABELS[role]} mode)
+            <span className="text-slate-200">({ROLE_LABELS[role]} mode)</span>
           </p>
         </div>
       </div>

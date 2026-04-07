@@ -1,14 +1,12 @@
 // Shared types and interfaces for the Rocky MVP
 
-export type UserRole = 'student' | 'teacher' | 'parent'
+export type UserRole = 'student' | 'teacher'
 
 export interface User {
   id: string
   name: string
   email: string
   role: UserRole
-  // Additional fields based on role
-  studentId?: string // for parents to link to child
 }
 
 export interface Challenge {

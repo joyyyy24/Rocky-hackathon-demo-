@@ -448,17 +448,17 @@ export function CreativeBuildArea({
                 distanceFactor={10}
               >
                 <div
-                  className="min-w-[260px] rounded-2xl border border-cyan-200/35 bg-slate-900/88 px-3 py-2 text-white shadow-[0_10px_22px_rgba(15,23,42,0.35)] backdrop-blur-md"
+                  className="min-w-[270px] rounded-2xl border border-cyan-200/35 bg-[#18253f]/96 px-3 py-2 text-white shadow-[0_12px_26px_rgba(2,6,23,0.46)] backdrop-blur-md"
                   onPointerDown={(event) => event.stopPropagation()}
                 >
                   <div className="mb-2 flex items-center justify-between gap-3">
-                    <p className="text-xs font-semibold text-cyan-100">
+                    <p className="text-xs font-bold text-cyan-100">
                       Selected: {placed.asset.label}
                     </p>
                     <button
                       type="button"
                       onClick={onCloseSelected}
-                      className="h-6 w-6 rounded-md border border-cyan-300/40 bg-cyan-500/10 text-xs font-bold text-cyan-100 hover:bg-cyan-400/20"
+                      className="h-6 w-6 rounded-md border border-cyan-300/45 bg-slate-700/60 text-xs font-bold text-cyan-100 hover:bg-slate-600/75"
                       title="Close panel"
                     >
                       ×
@@ -468,18 +468,18 @@ export function CreativeBuildArea({
                     <button
                       type="button"
                       onClick={onScaleDownSelected}
-                      className="h-8 w-8 rounded-lg border border-slate-500 bg-slate-800 text-sm font-bold hover:bg-slate-700"
+                      className="h-8 w-8 rounded-lg border border-slate-300/35 bg-slate-700/80 text-sm font-bold text-slate-100 hover:bg-slate-600/85"
                       title="Scale down"
                     >
                       -
                     </button>
-                    <span className="min-w-[74px] text-center text-xs">
+                    <span className="min-w-[74px] text-center text-xs font-semibold text-slate-100">
                       Scale {placed.scale.toFixed(1)}x
                     </span>
                     <button
                       type="button"
                       onClick={onScaleUpSelected}
-                      className="h-8 w-8 rounded-lg border border-slate-500 bg-slate-800 text-sm font-bold hover:bg-slate-700"
+                      className="h-8 w-8 rounded-lg border border-slate-300/35 bg-slate-700/80 text-sm font-bold text-slate-100 hover:bg-slate-600/85"
                       title="Scale up"
                     >
                       +
@@ -487,7 +487,7 @@ export function CreativeBuildArea({
                     <button
                       type="button"
                       onClick={onRotateSelected}
-                      className="rounded-lg border border-cyan-300/50 bg-cyan-500/15 px-2 py-1 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/25"
+                      className="rounded-lg border border-cyan-300/55 bg-slate-700/80 px-2 py-1 text-xs font-bold text-cyan-100 hover:bg-slate-600/85"
                       title="Rotate 90 degrees"
                     >
                       Rotate
@@ -495,7 +495,7 @@ export function CreativeBuildArea({
                     <button
                       type="button"
                       onClick={onDeleteSelected}
-                      className="rounded-lg border border-rose-300/50 bg-rose-500/15 px-2 py-1 text-xs font-semibold text-rose-100 hover:bg-rose-400/25"
+                      className="rounded-lg border border-rose-300/55 bg-rose-500/25 px-2 py-1 text-xs font-bold text-rose-100 hover:bg-rose-500/35"
                       title="Delete selected object"
                     >
                       Delete

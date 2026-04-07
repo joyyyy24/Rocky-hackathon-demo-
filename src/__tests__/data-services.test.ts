@@ -1,5 +1,4 @@
 import { getStudentsWithProgress, getClassSummary, getRecentActivity } from '@/lib/teacher-data'
-import { getCurrentParentWithChild, getChildRecentActivity } from '@/lib/parent-data'
 
 describe('Data Services - Role Boundaries', () => {
   describe('Teacher Data Service', () => {
@@ -29,38 +28,6 @@ describe('Data Services - Role Boundaries', () => {
         expect(activity).toHaveProperty('timestamp')
         expect(activity).toHaveProperty('challengeTitle')
       })
-    })
-  })
-
-  describe('Parent Data Service', () => {
-    it('returns only one child for parent view', () => {
-      const parentWithChild = getCurrentParentWithChild()
-      expect(parentWithChild).toHaveProperty('parent')
-      expect(parentWithChild).toHaveProperty('child')
-      expect(parentWithChild).toHaveProperty('relationship')
-      expect(['mother', 'father', 'guardian']).toContain(parentWithChild.relationship)
-    })
-
-    it('parent can only see their own child progress', () => {
-      const parentWithChild = getCurrentParentWithChild()
-      const childActivities = getChildRecentActivity(parentWithChild.child.student.id)
-
-      // Should only return activities for this specific child
-      childActivities.forEach(activity => {
-        expect(activity).toHaveProperty('action', 'completed')
-        expect(activity).toHaveProperty('challengeTitle')
-        expect(activity).toHaveProperty('timestamp')
-        expect(activity).toHaveProperty('details')
-      })
-    })
-
-    it('parent cannot access other children data', () => {
-      const parentWithChild = getCurrentParentWithChild()
-      const otherChildId = parentWithChild.child.student.id === 'student1' ? 'student2' : 'student1'
-
-      // This should return empty array since parent can only see their child
-      const otherChildActivities = getChildRecentActivity(otherChildId)
-      expect(otherChildActivities).toHaveLength(0)
     })
   })
 

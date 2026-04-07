@@ -1,4 +1,4 @@
-export type UserRole = "student" | "teacher" | "parent";
+export type UserRole = "student" | "teacher";
 
 export interface MockSession {
   role: UserRole;
@@ -11,13 +11,11 @@ const NAME_KEY = "rocky_name";
 export const ROLE_LABELS: Record<UserRole, string> = {
   student: "Student",
   teacher: "Teacher",
-  parent: "Parent",
 };
 
 export const ROLE_HOME: Record<UserRole, string> = {
   student: "/student",
   teacher: "/teacher",
-  parent: "/parent",
 };
 
 export function getMockSession(): MockSession | null {

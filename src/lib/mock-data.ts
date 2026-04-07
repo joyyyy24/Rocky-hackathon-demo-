@@ -36,18 +36,6 @@ export const mockUsers: User[] = [
     role: 'student'
   },
   {
-    id: 'parent1',
-    name: 'Sarah Johnson',
-    email: 'sarah@example.com',
-    role: 'parent'
-  },
-  {
-    id: 'parent2',
-    name: 'Mike Smith',
-    email: 'mike@example.com',
-    role: 'parent'
-  },
-  {
     id: 'teacher1',
     name: 'Dr. Smith',
     email: 'teacher@example.com',

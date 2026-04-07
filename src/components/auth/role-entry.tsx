@@ -30,12 +30,6 @@ const roleCards: Array<{
     subtitle: "Monitor class progress, completed zones, reflections, current activity.",
     sampleName: "Ms. Chen",
   },
-  {
-    role: "parent",
-    icon: "🌟",
-    subtitle: "View child progress in a simple, read-only summary page.",
-    sampleName: "Emma's Parent",
-  },
 ];
 
 export function RoleEntry() {
@@ -93,12 +87,12 @@ export function RoleEntry() {
             id="display-name"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Try: Ava, Ms. Chen, Emma's Parent"
+            placeholder="Try: Ava, Ms. Chen"
             className="w-full rounded-xl border border-cyan-200/25 bg-slate-900/70 px-4 py-3 text-white placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-cyan-400/50"
           />
         </section>
 
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {roleCards.map((card) => (
             <Card
               key={card.role}

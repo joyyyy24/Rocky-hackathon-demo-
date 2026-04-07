@@ -369,6 +369,7 @@ export default function WorldScene({
   const [socraticIndex, setSocraticIndex] = useState(0);
   const [askedMilestones, setAskedMilestones] = useState<number[]>([]);
   const [friendsExpanded, setFriendsExpanded] = useState(false);
+  const [friendsDocked, setFriendsDocked] = useState(false);
   const [classmateWorlds, setClassmateWorlds] = useState<WorldSnapshot[]>([]);
 
   const hotbarAssets = [
@@ -591,8 +592,8 @@ export default function WorldScene({
     setSubtitle("Fresh style-consistent variants ready. Choose one and build.");
   };
 
-  const handleAskRocky = async (question: string) => {
-    if (isAskingRocky) return;
+  const handleAskRocky = async (question: string): Promise<string> => {
+    if (isAskingRocky) return "Rocky is already thinking. Please wait a moment.";
     setIsAskingRocky(true);
     const fallbackLine = getAskLine(question, selectedStyle);
     setSubtitle("Rocky is thinking...");
@@ -634,9 +635,17 @@ export default function WorldScene({
         reflections: getBuildSummary().reflections + 1,
         completionStatus: "in-progress",
       });
+      return line;
     } finally {
       setIsAskingRocky(false);
     }
+  };
+
+  const handleAskRockyFromBubble = async (question: string): Promise<string> => {
+    const line = (await handleAskRocky(question)) || getAskLine(question, selectedStyle);
+    setRockyBubbleMessage(line);
+    setIsRockyBubbleOpen(true);
+    return line;
   };
 
   const maybeTriggerSocraticPrompt = (nextPlacedCount: number, latestObject?: string) => {
@@ -802,7 +811,7 @@ export default function WorldScene({
   };
 
   return (
-    <div className="relative w-full h-full overflow-hidden">
+    <div className="relative h-full w-full overflow-hidden bg-[#0f1d38]">
       <Canvas camera={{ position: [10.5, 11, 10.5], fov: 52 }}>
         <Suspense fallback={null}>
           {/* Soft global illumination */}
@@ -817,7 +826,7 @@ export default function WorldScene({
           />
 
           {/* Clean background */}
-          <color attach="background" args={["#F0F8FF"]} />
+          <color attach="background" args={["#bfd4fb"]} />
 
           <FloatingIsland />
           <CreativeBuildArea
@@ -857,10 +866,11 @@ export default function WorldScene({
           )}
         </Suspense>
       </Canvas>
+      <div className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0)_40%,rgba(8,12,27,0.3)_100%)]" />
 
       {isMissionVisible && (
         <div
-          className={`absolute left-4 z-20 w-[min(420px,90vw)] rounded-2xl border border-cyan-200/30 bg-slate-900/75 p-4 pr-12 text-white backdrop-blur ${
+          className={`absolute left-4 z-20 w-[min(430px,90vw)] rounded-2xl border border-cyan-200/30 bg-[#1a2745]/96 p-5 pr-12 text-white shadow-[0_12px_30px_rgba(2,6,23,0.45)] backdrop-blur ${
             reviewMode ? "top-44" : "top-20"
           }`}
         >
@@ -868,13 +878,13 @@ export default function WorldScene({
             type="button"
             onClick={() => setIsMissionVisible(false)}
             aria-label="Close mission reminder"
-            className="absolute right-3 top-3 h-8 w-8 rounded-lg border border-cyan-200/30 bg-slate-800/85 text-cyan-100 transition hover:bg-slate-700"
+            className="absolute right-3 top-3 h-8 w-8 rounded-lg border border-cyan-200/30 bg-slate-800/90 text-cyan-100 transition hover:bg-slate-700"
           >
             ×
           </button>
-          <p className="mb-1 text-xs uppercase tracking-wider text-cyan-200">Today&apos;s Mission</p>
-          <h3 className="text-lg font-bold">{taskTitle || "Creative Mission"}</h3>
-          <p className="mt-1 text-sm text-slate-200">{taskPrompt}</p>
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-200">Today&apos;s Mission</p>
+          <h3 className="text-xl font-extrabold leading-tight text-slate-50">{taskTitle || "Creative Mission"}</h3>
+          <p className="mt-2 text-sm font-medium leading-relaxed text-slate-100">{taskPrompt}</p>
           {reviewMode && (
             <p className="mt-2 text-xs font-semibold text-amber-200">
               Read-only review for {reviewStudentName || "selected student"}
@@ -884,74 +894,89 @@ export default function WorldScene({
       )}
 
       {!reviewMode && socraticPrompt && (
-        <div className="absolute left-4 top-[11.8rem] z-30 w-[min(420px,90vw)] rounded-2xl border border-amber-200/40 bg-slate-900/88 p-4 pr-12 text-white shadow-lg">
+        <div className="absolute left-4 top-[11.8rem] z-30 w-[min(430px,90vw)] rounded-2xl border border-amber-200/45 bg-[#1f2840]/96 p-5 pr-12 text-white shadow-[0_14px_34px_rgba(15,23,42,0.52)]">
           <button
             type="button"
             onClick={() => setSocraticPrompt(null)}
             aria-label="Close socratic prompt"
-            className="absolute right-3 top-3 h-8 w-8 rounded-lg border border-amber-200/25 bg-slate-800/85 text-amber-100 transition hover:bg-slate-700"
+            className="absolute right-3 top-3 h-8 w-8 rounded-lg border border-amber-200/30 bg-slate-800/90 text-amber-100 transition hover:bg-slate-700"
           >
             ×
           </button>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-200">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-amber-200">
             Rocky Question
           </p>
-          <p className="mt-1 text-sm text-slate-100">{socraticPrompt}</p>
-          <p className="mt-2 text-xs text-slate-300">
+          <p className="mt-2 text-sm font-medium leading-relaxed text-slate-100">{socraticPrompt}</p>
+          <p className="mt-2 text-xs font-medium text-amber-100/90">
             Think first, then try your next build move.
           </p>
         </div>
       )}
 
       {!reviewMode && (
-        <div className="absolute left-4 top-[17.2rem] z-30 w-[min(320px,86vw)] rounded-xl border border-cyan-200/30 bg-slate-900/80 p-2 text-white backdrop-blur">
+        <div
+          className={`absolute left-0 top-[17.2rem] z-30 flex items-start transition-transform duration-300 ${
+            friendsDocked ? "-translate-x-[calc(100%-2.75rem)]" : "translate-x-0"
+          }`}
+        >
+          <div className="w-[min(340px,88vw)] rounded-xl border border-cyan-200/30 bg-[#1a2743]/94 p-2 text-white shadow-[0_10px_24px_rgba(2,6,23,0.4)] backdrop-blur">
+            <button
+              type="button"
+              onClick={() => setFriendsExpanded((prev) => !prev)}
+              className="flex w-full items-center justify-between rounded-lg border border-slate-500/45 bg-slate-800/90 px-3 py-2 text-left text-xs font-bold text-cyan-100 hover:border-cyan-300/40 hover:bg-slate-700/90"
+            >
+              <span>Visit Classmates&apos; Worlds</span>
+              <span>{friendsExpanded ? "▲" : "▼"}</span>
+            </button>
+            {friendsExpanded && (
+              <div className="mt-2 max-h-56 space-y-2 overflow-y-auto px-1 pb-1">
+                {classmateWorlds.length === 0 && (
+                  <p className="rounded-lg bg-slate-800/70 px-2 py-2 text-xs text-slate-200">
+                    No published classmate worlds yet.
+                  </p>
+                )}
+                {classmateWorlds.map((world) => (
+                  <button
+                    key={world.id}
+                    type="button"
+                    onClick={() => router.push(`/world/view/${world.id}`)}
+                    className="w-full rounded-lg border border-cyan-300/25 bg-slate-800/90 px-3 py-2 text-left hover:border-cyan-300/45 hover:bg-slate-700/90"
+                  >
+                    <p className="text-xs font-bold text-cyan-100">{world.ownerName}</p>
+                    <p className="text-[11px] font-medium text-slate-200">
+                      {world.style || "No style"} • {world.placedAssets.length} objects
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             type="button"
-            onClick={() => setFriendsExpanded((prev) => !prev)}
-            className="flex w-full items-center justify-between rounded-lg bg-slate-800/80 px-3 py-2 text-left text-xs font-semibold text-cyan-100 hover:bg-slate-700"
+            onClick={() => setFriendsDocked((prev) => !prev)}
+            className="ml-2 mt-2 h-20 w-11 rounded-r-xl border border-cyan-200/35 bg-[#132037]/95 text-xs font-bold text-cyan-100 shadow-[0_8px_20px_rgba(2,6,23,0.45)] hover:bg-[#1b2b48]"
+            title={friendsDocked ? "Open classmates panel" : "Dock classmates panel"}
+            aria-label={friendsDocked ? "Open classmates panel" : "Dock classmates panel"}
           >
-            <span>Visit Classmates&apos; Worlds</span>
-            <span>{friendsExpanded ? "▲" : "▼"}</span>
+            {friendsDocked ? "›" : "‹"}
           </button>
-          {friendsExpanded && (
-            <div className="mt-2 max-h-56 space-y-2 overflow-y-auto px-1 pb-1">
-              {classmateWorlds.length === 0 && (
-                <p className="rounded-lg bg-slate-800/60 px-2 py-2 text-xs text-slate-300">
-                  No published classmate worlds yet.
-                </p>
-              )}
-              {classmateWorlds.map((world) => (
-                <button
-                  key={world.id}
-                  type="button"
-                  onClick={() => router.push(`/world/view/${world.id}`)}
-                  className="w-full rounded-lg border border-cyan-300/20 bg-slate-800/70 px-3 py-2 text-left hover:bg-slate-700"
-                >
-                  <p className="text-xs font-semibold text-cyan-100">{world.ownerName}</p>
-                  <p className="text-[11px] text-slate-300">
-                    {world.style || "No style"} • {world.placedAssets.length} objects
-                  </p>
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       )}
 
       {!reviewMode && (
-        <div className="absolute left-1/2 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+8.1rem)] z-30 w-[min(860px,95vw)] -translate-x-1/2 rounded-2xl border border-cyan-200/30 bg-slate-900/78 px-3 py-2 text-white backdrop-blur-md">
+        <div className="absolute left-1/2 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+8.1rem)] z-30 w-[min(900px,95vw)] -translate-x-1/2 rounded-2xl border border-cyan-200/30 bg-[#182743]/96 px-3 py-2 text-white shadow-[0_14px_30px_rgba(2,6,23,0.5)] backdrop-blur-md">
           <div className="flex flex-wrap items-center gap-2">
             <input
               value={styleInput}
               onChange={(event) => setStyleInput(event.target.value)}
               placeholder="Style idea: Egyptian style"
-              className="h-9 min-w-[180px] flex-1 rounded-lg border border-slate-600 bg-slate-800 px-3 text-xs outline-none focus:ring-2 focus:ring-cyan-400/50"
+              className="h-9 min-w-[190px] flex-1 rounded-lg border border-slate-500 bg-slate-900/95 px-3 text-xs font-medium text-slate-50 placeholder:text-slate-300 outline-none focus:ring-2 focus:ring-cyan-400/60"
             />
             <button
               type="button"
               onClick={handleApplyStyle}
               disabled={isApplyingStyle || isRefreshingAssets || isAddingAssets}
-              className="h-9 rounded-lg bg-cyan-500 px-3 text-xs font-semibold text-slate-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:bg-cyan-700 disabled:text-slate-200"
+              className="h-9 rounded-lg border border-cyan-200/60 bg-gradient-to-r from-cyan-400 to-sky-500 px-3 text-xs font-bold text-slate-950 shadow-[0_6px_16px_rgba(14,165,233,0.4)] hover:brightness-105 active:translate-y-[1px] disabled:cursor-not-allowed disabled:brightness-75 disabled:text-slate-800"
             >
               {isApplyingStyle ? "Applying..." : "Apply Style"}
             </button>
@@ -959,29 +984,29 @@ export default function WorldScene({
               value={customRequest}
               onChange={(event) => setCustomRequest(event.target.value)}
               placeholder="Add request: tall gate..."
-              className="h-9 min-w-[170px] flex-1 rounded-lg border border-slate-600 bg-slate-800 px-3 text-xs outline-none focus:ring-2 focus:ring-cyan-400/40"
+              className="h-9 min-w-[180px] flex-1 rounded-lg border border-slate-500 bg-slate-900/95 px-3 text-xs font-medium text-slate-50 placeholder:text-slate-300 outline-none focus:ring-2 focus:ring-cyan-400/55"
             />
             <button
               type="button"
               onClick={handleAddAssets}
               disabled={isAddingAssets || isRefreshingAssets || isApplyingStyle}
-              className="h-9 rounded-lg bg-cyan-500 px-3 text-xs font-semibold text-slate-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:bg-cyan-700 disabled:text-slate-200"
+              className="h-9 rounded-lg border border-cyan-200/60 bg-gradient-to-r from-cyan-400 to-sky-500 px-3 text-xs font-bold text-slate-950 shadow-[0_6px_16px_rgba(14,165,233,0.4)] hover:brightness-105 active:translate-y-[1px] disabled:cursor-not-allowed disabled:brightness-75 disabled:text-slate-800"
             >
               {isAddingAssets ? "Adding..." : "Add"}
             </button>
           </div>
-          <p className="mt-1 px-1 text-[11px] text-slate-300">
+          <p className="mt-1 px-1 text-[11px] font-medium text-slate-200">
             Current style: {selectedStyle || "Not set"}
           </p>
         </div>
       )}
 
       {!reviewMode && (
-        <div className="absolute right-4 top-20 z-30 flex items-center gap-2 rounded-xl border border-cyan-200/30 bg-slate-900/82 p-2 backdrop-blur-md">
+        <div className="absolute right-4 top-20 z-30 flex items-center gap-2 rounded-xl border border-cyan-200/30 bg-[#18253f]/95 p-2 shadow-[0_10px_24px_rgba(2,6,23,0.42)] backdrop-blur-md">
           <button
             type="button"
             onClick={() => setViewMode((current) => (current === "build" ? "explore" : "build"))}
-            className="h-9 rounded-lg border border-cyan-300/50 bg-cyan-500/15 px-3 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/25"
+            className="h-9 rounded-lg border border-slate-300/35 bg-slate-700/70 px-3 text-xs font-bold text-slate-100 hover:border-cyan-300/50 hover:bg-slate-600/80"
             title="Switch camera mode"
           >
             {viewMode === "build" ? "Explore Mode" : "Build Mode"}
@@ -989,14 +1014,14 @@ export default function WorldScene({
           <button
             type="button"
             onClick={handleSaveWorld}
-            className="h-9 rounded-lg border border-emerald-300/50 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-100 hover:bg-emerald-400/25"
+            className="h-9 rounded-lg border border-emerald-300/45 bg-emerald-500/20 px-3 text-xs font-bold text-emerald-100 hover:bg-emerald-500/30"
           >
             {saveLabel}
           </button>
           <button
             type="button"
             onClick={handlePublishWorld}
-            className="h-9 rounded-lg border border-violet-300/50 bg-violet-500/15 px-3 text-xs font-semibold text-violet-100 hover:bg-violet-400/25"
+            className="h-9 rounded-lg border border-cyan-200/60 bg-gradient-to-r from-cyan-400 to-blue-500 px-3 text-xs font-bold text-slate-950 shadow-[0_6px_16px_rgba(14,165,233,0.35)] hover:brightness-105"
           >
             {publishLabel}
           </button>
@@ -1004,13 +1029,13 @@ export default function WorldScene({
       )}
 
       {!reviewMode && viewMode === "explore" && showExploreHint && (
-        <div className="pointer-events-none absolute left-1/2 top-36 z-30 -translate-x-1/2 rounded-xl border border-cyan-300/30 bg-slate-950/70 px-3 py-2 text-xs text-cyan-100 backdrop-blur-sm">
+        <div className="pointer-events-none absolute left-1/2 top-36 z-30 -translate-x-1/2 rounded-xl border border-cyan-300/35 bg-[#17243d]/95 px-3 py-2 text-xs font-semibold text-cyan-100 shadow-lg backdrop-blur-sm">
           Explore Mode: click the 3D scene, move with WASD, press Esc to unlock mouse.
         </div>
       )}
 
       {!reviewMode && (
-        <div className="absolute left-1/2 bottom-[max(0.9rem,env(safe-area-inset-bottom))] z-30 w-[min(880px,96vw)] -translate-x-1/2 rounded-2xl border border-cyan-200/30 bg-slate-950/72 px-2 py-2 backdrop-blur-md">
+        <div className="absolute left-1/2 bottom-[max(0.9rem,env(safe-area-inset-bottom))] z-30 w-[min(900px,96vw)] -translate-x-1/2 rounded-2xl border border-cyan-200/30 bg-[#141f38]/96 px-2 py-2 shadow-[0_14px_32px_rgba(2,6,23,0.55)] backdrop-blur-md">
           <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1">
             {hotbarAssets.map((asset) => (
               <button
@@ -1018,15 +1043,15 @@ export default function WorldScene({
                 type="button"
                 onClick={() => handleSelectHotbarAsset(asset)}
                 title={asset.label}
-                className={`group flex min-w-[76px] flex-col items-center ${
+                  className={`group flex min-w-[76px] flex-col items-center ${
                   selectedAsset?.id === asset.id ? "scale-[1.02]" : ""
                 } transition-transform`}
               >
                 <span
-                  className={`flex h-[62px] w-[62px] items-center justify-center overflow-hidden rounded-xl border text-2xl shadow-inner transition-all ${
+                  className={`flex h-[62px] w-[62px] items-center justify-center overflow-hidden rounded-xl border text-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] transition-all ${
                     selectedAsset?.id === asset.id
-                      ? "border-cyan-300 bg-cyan-400/20 shadow-[0_0_18px_rgba(56,189,248,0.35)]"
-                      : "border-slate-500/80 bg-slate-800/80 group-hover:border-cyan-400/55 group-hover:bg-slate-700/90"
+                      ? "border-cyan-200 bg-cyan-400/25 shadow-[0_0_18px_rgba(56,189,248,0.42)]"
+                      : "border-slate-500/80 bg-slate-800/95 group-hover:border-cyan-400/65 group-hover:bg-slate-700/95"
                   }`}
                 >
                   <div
@@ -1039,8 +1064,8 @@ export default function WorldScene({
                   </div>
                 </span>
                 <span
-                  className={`mt-1 max-w-[70px] truncate text-center text-[11px] font-semibold ${
-                    selectedAsset?.id === asset.id ? "text-cyan-100" : "text-slate-200"
+                  className={`mt-1 max-w-[70px] truncate text-center text-[11px] font-bold ${
+                    selectedAsset?.id === asset.id ? "text-cyan-100" : "text-slate-100"
                   }`}
                 >
                   {shortAssetName(asset.label)}
@@ -1052,9 +1077,9 @@ export default function WorldScene({
       )}
 
       {!reviewMode && selectedAsset?.id === "core-build-block" && (
-        <div className="absolute left-1/2 bottom-[calc(max(0.9rem,env(safe-area-inset-bottom))+5.8rem)] z-30 -translate-x-1/2 rounded-xl border border-cyan-200/30 bg-slate-900/85 px-3 py-2 backdrop-blur-md">
+        <div className="absolute left-1/2 bottom-[calc(max(0.9rem,env(safe-area-inset-bottom))+5.8rem)] z-30 -translate-x-1/2 rounded-xl border border-cyan-200/35 bg-[#1b2741]/96 px-3 py-2 shadow-lg backdrop-blur-md">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-semibold text-cyan-100">Block Color</span>
+            <span className="text-[11px] font-bold tracking-wide text-cyan-100">Block Color</span>
             <div className="flex items-center gap-1">
               {BLOCK_COLOR_SWATCHES.map((color) => (
                 <button
@@ -1084,7 +1109,7 @@ export default function WorldScene({
           type="button"
           onClick={handleRefreshAssets}
           disabled={isRefreshingAssets || isApplyingStyle || isAddingAssets}
-          className="absolute left-1/2 bottom-[calc(max(0.9rem,env(safe-area-inset-bottom))+5.8rem)] z-30 ml-[min(440px,47vw)] flex h-[42px] min-w-[42px] -translate-x-1/2 items-center justify-center rounded-xl border border-cyan-300/50 bg-cyan-500/15 text-cyan-100 shadow-[0_0_12px_rgba(56,189,248,0.2)] transition-all hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-55"
+          className="absolute left-1/2 bottom-[calc(max(0.9rem,env(safe-area-inset-bottom))+5.8rem)] z-30 ml-[min(440px,47vw)] flex h-[42px] min-w-[42px] -translate-x-1/2 items-center justify-center rounded-xl border border-slate-300/45 bg-slate-700/85 text-slate-100 shadow-[0_8px_18px_rgba(15,23,42,0.35)] transition-all hover:border-cyan-300/60 hover:bg-slate-600/90 disabled:cursor-not-allowed disabled:opacity-55"
           title="Refresh assets"
         >
           <span className={`text-lg leading-none ${isRefreshingAssets ? "animate-spin" : ""}`}>
@@ -1095,14 +1120,14 @@ export default function WorldScene({
 
       <AICompanion
         subtitle={subtitle}
-        onAskRocky={handleAskRocky}
-        isAskingRocky={isAskingRocky}
       />
       <RockySpeechBubble
         visible={isRockyBubbleOpen}
         message={rockyBubbleMessage}
         onClose={() => setIsRockyBubbleOpen(false)}
         onMoreIdeas={() => showRockyIdea(rockyBubbleIndex + 1)}
+        onAskRocky={handleAskRockyFromBubble}
+        isAskingRocky={isAskingRocky}
       />
     </div>
   );
