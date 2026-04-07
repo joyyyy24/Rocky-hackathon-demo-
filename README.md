@@ -1,76 +1,90 @@
 # Rocky MVP
 
-A role-based, 3D educational sandbox for children (ages 8-12), where teachers publish creative missions, students build themed worlds with Rocky’s guidance, and parents monitor progress in read-only mode.
+Rocky is a role-based 3D educational sandbox for kids (8-12): teachers publish creative missions, students build worlds with AI-assisted themed assets, and parents review progress in read-only mode.
 
-This project is intentionally implemented as a **local-first hackathon MVP** with mock persistence and no backend dependency.
+This is a **hackathon MVP** built for fast iteration: local auth/session state + lightweight server routes for Gemini-powered generation.
 
 ---
 
-## Product Overview
+## Product Loop
 
-Rocky demonstrates a complete role-driven product loop:
-
-- **Teacher** publishes today’s creative task.
-- **Student** enters the 3D world, selects a style, generates themed assets, and builds on a grid board.
-- **Rocky** (an in-world AI-style companion) guides creativity through subtitles and comic bubble suggestions.
-- **Parent** views child progress and latest build summary.
-
-### Target Users
-
-- **Students (8-12)**: primary interactive users.
-- **Teachers**: assign and supervise creative learning activities.
-- **Parents**: read-only observers of child progress.
+- **Teacher** publishes today’s mission.
+- **Student** enters `/world`, applies a style, requests themed object packs, refreshes variants, and builds on a snap grid.
+- **Rocky Companion** provides guided prompts via subtitle + Ask Rocky dialog.
+- **Parent** monitors progress and world output in read-only view.
 
 ---
 
 ## Current Feature Set
 
-### Authentication and Role Flow (Mock)
+### Role-Based App Flow (Mock Auth)
 
-- Role selection landing screen.
-- Optional display name.
-- Session persisted in `localStorage`.
-- Route guards by role.
-- Logout returns user to role selection.
+- Role selection entry (`student`, `teacher`, `parent`)
+- Optional display name
+- Role/session persisted in `localStorage`
+- Route guards by role
+- Logout returns to role entry
 
-### Student Build World
+### Student Build Experience
 
-- Large **12x12 grid-based build board** with visible cell lines.
-- Hotbar-driven asset selection (10 slots).
-- Snap-to-grid placement and one-item-per-cell occupancy.
-- Single-place behavior per hotbar selection (prevents accidental spam placement).
-- Object editing after placement:
-  - select object,
-  - scale (`0.5x` to `2.0x`),
-  - rotate (`90°`),
-  - delete.
+- 12x12 build board, snap-to-grid, one item per cell
+- Hotbar with 10 generated assets
+- Place, select, scale (`0.5x-2.0x`), rotate (`90deg`), delete
+- Save draft and publish world
+- Review-safe read-only mode for teacher world review page
 
 ### Rocky Companion
 
-- 3D floating Rocky in scene.
-- Top subtitle narration for passive guidance.
-- Clickable Rocky opens comic-style speech bubble.
-- Contextual, question-led suggestions based on task/style/build state.
-- “Ask Rocky” interaction for additional ideas.
+- 3D in-world Rocky + subtitle bar
+- Ask Rocky modal (async API + loading/disabled states)
+- Bubble suggestions tied to task/style/state
+- API fallback to local scripted guidance
 
-### Teacher and Parent Experiences
+### Teacher & Parent
 
-- **Teacher** can publish task title/description/prompt/theme examples.
-- Student reads active teacher task on world entry.
-- **Teacher/Parent** read build summary (style, object count, latest reflection) from local state.
+- Teacher can publish active mission
+- Teacher can open student world review
+- Parent can view summary data read-only
+
+---
+
+## AI Asset Generation (Refactored)
+
+The asset pipeline is now 3-layer and Gemini-driven:
+
+1. **Style Pack Layer**
+   - `generateStylePack(stylePrompt)` creates a structured style system:
+   - theme, palette, materials, motifs, silhouette language, recommended categories
+
+2. **Object Pack Layer**
+   - `generateObjectPack(stylePack, addPrompt, seed, recentHistory)` creates structured asset specs:
+   - category, shape family, template key, ornaments, silhouette, size class, colors
+
+3. **Local Asset Factory Layer**
+   - `mapAssetSpecsToLocalTemplates()` maps specs to local buildable assets
+   - richer local archetypes (gate variants, roof variants, tower variants, bridge, lantern, etc.)
+   - preserves existing gameplay/placement logic
+
+### UX Behavior
+
+- **Apply Style**: builds coherent themed style language
+- **Add**: generates a themed object pack for the request
+- **Refresh**: returns new variants under same style family using a new seed + recent-history anti-duplication
+
+### Fallback
+
+If Gemini fails, fallback still uses seeded template diversity (not a tiny fixed rotation).
 
 ---
 
 ## Tech Stack
 
 - **Framework**: Next.js 14 (App Router)
-- **Language**: TypeScript (strict mode)
+- **Language**: TypeScript (strict)
 - **UI**: React + Tailwind CSS
-- **3D**: Three.js via React Three Fiber (`@react-three/fiber`) + `@react-three/drei`
+- **3D**: React Three Fiber + drei + Three.js
 - **Testing**: Jest
-- **Persistence (MVP)**: browser `localStorage`
-
-> Note: Despite earlier exploration prompts mentioning Vite/vanilla JS, this repository is implemented in Next.js + TypeScript and should be maintained in this stack.
+- **Persistence**: `localStorage` (MVP scope)
 
 ---
 
@@ -78,166 +92,122 @@ Rocky demonstrates a complete role-driven product loop:
 
 ### Prerequisites
 
-- Node.js 18+ (Node 20 LTS recommended)
+- Node.js 18+ (Node 20 recommended)
 - npm
 
-### Install
+### Install & Run
 
 ```bash
 npm install
+npm run dev
 ```
 
-### Run Development Server
+Open [http://localhost:3000](http://localhost:3000)
+
+### Lint / Test / Build
+
+```bash
+npm run lint
+npm test
+npm run build
+```
+
+---
+
+## Gemini Setup
+
+Create `.env.local` in project root:
+
+```bash
+GEMINI_API_KEY=your_key_here
+```
+
+Then restart dev server:
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
-
-### Build and Production Run
-
-```bash
-npm run build
-npm run start
-```
-
-### Quality Checks
-
-```bash
-npm run lint
-npm test
-```
+> Security: never commit `.env.local` and rotate leaked keys immediately.
 
 ---
 
-## Local Data Flow
+## Main API Routes
 
-This MVP intentionally uses local browser storage to simulate end-to-end product behavior.
-
-1. Teacher saves active task.
-2. Student world reads active task on entry.
-3. Student chooses style.
-4. Local asset generator produces themed hotbar assets.
-5. Student places/edit objects.
-6. Build summary updates and is exposed to Teacher/Parent views.
-
-### `localStorage` Keys
-
-- `rocky_role`, `rocky_name`: session identity.
-- `rocky_active_task`: active teacher mission.
-- `rocky_build_summary`: latest student build state snapshot.
+- `src/app/api/rocky/route.ts`
+  - Rocky Q&A response generation
+- `src/app/api/assets/route.ts`
+  - style pack + object pack generation and mapping to buildable assets
 
 ---
 
-## Repository Structure (Key Paths)
+## Key Structure
 
 ```text
 src/
   app/
-    page.tsx                      # role entry
-    world/page.tsx                # student world
-    teacher/page.tsx              # teacher dashboard
-    parent/page.tsx               # parent dashboard
+    api/
+      rocky/route.ts
+      assets/route.ts
+    world/page.tsx
+    teacher/page.tsx
+    parent/page.tsx
   components/
-    auth/
-      role-entry.tsx
-      role-guard.tsx
     ai/
-      ai-companion.tsx            # subtitle + ask mode
-      ai-companion-3d.tsx         # clickable Rocky
-      rocky-speech-bubble.tsx     # comic bubble overlay
+      ai-companion.tsx
+      ai-companion-3d.tsx
+      rocky-speech-bubble.tsx
     world/
-      world-scene.tsx             # world orchestration + HUD
-      creative-build-area.tsx     # grid board, snapping, object selection/edit
+      world-scene.tsx
+      creative-build-area.tsx
       floating-island.tsx
   lib/
-    mock-auth.ts
-    tasks.ts
+    ai-asset-pipeline.ts
     asset-generator.ts
+    tasks.ts
     build-state.ts
-    companion-script.ts
+    world-storage.ts
 ```
 
 ---
 
-## Engineering Principles Used
+## Local Storage Keys
 
-- Keep role boundaries explicit in UI and routes.
-- Keep 3D rendering and product logic separated.
-- Use local scripted logic for deterministic MVP behavior.
-- Prefer incremental refactors over architecture resets.
-- Keep child-facing language short, warm, and encouraging.
-
----
-
-## Known MVP Limitations
-
-- No real backend authentication.
-- No cloud database or multi-device sync.
-- No real LLM or text-to-3D integration.
-- No collaborative multiplayer mode.
-
-These are intentional trade-offs for demo speed and product validation.
+- `rocky_role`, `rocky_name`
+- `rocky_active_task`
+- `rocky_build_summary`
+- world draft/publish keys from `world-storage.ts`
 
 ---
 
-## Recommended Next Steps
+## Known Limitations
 
-1. Move task/build/session state from localStorage to backend APIs.
-2. Add persistent student profiles and classroom-scoped data.
-3. Add undo/redo history for build edits.
-4. Add richer asset thumbnails and placement effects.
-5. Add analytics for mission completion and creativity signals.
+- Mock auth (no real identity provider)
+- No server database (single-browser persistence)
+- No multiplayer collaboration
+- No imported external 3D model pipeline (uses local parametric archetypes)
 
 ---
 
-## Pending Features (To Implement)
+## Next Suggested Improvements
 
-The items below are confirmed product requirements to be implemented next.
-
-### Teacher Side
-
-1. **Publish assignments**
-   - Provide a complete task publishing workflow for teachers.
-   - Required fields: `title`, `description`, `prompt`, `theme examples`, `due date` (optional for MVP).
-   - Support `draft` -> `published` -> `archived` states.
-   - Show a student-facing preview before publishing.
-2. **View and open student submissions**
-   - Teachers can view student homework/submissions by task.
-   - Teachers can open a student's submission and enter that student's 3D world for review.
-
-### Student Side
-
-1. **Canvas lifecycle**
-   - Create a new canvas.
-   - Open/switch between different canvases.
-   - Canvas list should show: canvas name, task name, updated time, and completion badge.
-   - Student can duplicate and rename a canvas for iteration.
-2. **In-canvas gameplay and AI improvements**
-   - Improve gameplay feel inside canvas (building flow and interaction smoothness).
-   - Improve AI functionality in the build experience (guidance quality and relevance).
-3. **Guide AI polish**
-   - Improve guide AI appearance (character visual quality).
-   - Improve guide AI interaction experience (timing, trigger clarity, usability).
-
-### Priority Guidance
-
-- First priority: teacher task -> student submission -> teacher review loop.
-- Second priority: student multi-canvas workflow.
-- Third priority: gameplay and AI experience polish.
+1. Persist style packs/object packs to backend for replayability
+2. Add undo/redo stack for build actions
+3. Add per-classroom analytics + teacher insights
+4. Add stronger safety moderation layer for all AI outputs
+5. Add deterministic replay snapshots for demo reliability
 
 ---
 
 ## Contributing
 
-1. Keep PRs focused and reviewable.
-2. Preserve role-based product logic.
-3. Run lint/tests before submitting.
-4. Update README when behavior or architecture changes.
+1. Keep PRs small and reviewable
+2. Preserve role boundaries and existing build flow
+3. Run lint/tests before merge
+4. Update README when behavior changes
 
 ---
 
 ## License
 
-Hackathon MVP repository. Add a formal license before public distribution.
+Hackathon MVP repository. Add formal license before public distribution.
