@@ -1,11 +1,13 @@
 import { StudentWithProgress } from "@/lib/teacher-data";
+import { StudentProgressionProfile, getExpProgress } from "@/lib/student-progression";
 
 interface StudentRowProps {
   studentWithProgress: StudentWithProgress;
+  progression?: StudentProgressionProfile;
   onClick: () => void;
 }
 
-export function StudentRow({ studentWithProgress, onClick }: StudentRowProps) {
+export function StudentRow({ studentWithProgress, progression, onClick }: StudentRowProps) {
   const {
     student,
     progress,
@@ -15,6 +17,7 @@ export function StudentRow({ studentWithProgress, onClick }: StudentRowProps) {
   } = studentWithProgress;
   const progressPercentage =
     totalChallenges > 0 ? (completedChallenges / totalChallenges) * 100 : 0;
+  const expProgress = progression ? getExpProgress(progression) : null;
 
   const formatLastActivity = (date: Date) => {
     const now = new Date();
@@ -65,6 +68,11 @@ export function StudentRow({ studentWithProgress, onClick }: StudentRowProps) {
               <div className="text-sm text-gray-500">
                 Last active {formatLastActivity(lastActivity)}
               </div>
+              {progression && (
+                <div className="text-xs font-semibold text-indigo-700">
+                  Lv. {progression.level} · {progression.title}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -80,6 +88,11 @@ export function StudentRow({ studentWithProgress, onClick }: StudentRowProps) {
                 style={{ width: `${progressPercentage}%` }}
               ></div>
             </div>
+            {progression && expProgress && (
+              <div className="mt-1 text-[11px] text-slate-600">
+                EXP {expProgress.currentExp}/{expProgress.requiredExp} · Grade {progression.latestGrade || "-"}
+              </div>
+            )}
           </div>
 
           <div className="flex space-x-1">

@@ -22,6 +22,14 @@ import {
   type RubricScores,
 } from "@/lib/review-rubric";
 import { getMockSession } from "@/lib/mock-auth";
+import {
+  AssignmentGrade,
+  buildStudentIdFromName,
+  getExpForGrade,
+  getExpProgress,
+  getStudentProfile,
+  gradeStudentAssignment,
+} from "@/lib/student-progression";
 
 export default function TeacherPage() {
   const router = useRouter();
@@ -38,10 +46,19 @@ export default function TeacherPage() {
   });
   const [rubricFeedback, setRubricFeedback] = useState("");
   const [rubricSavedWorldId, setRubricSavedWorldId] = useState<string | null>(null);
+  const [gradedWorldId, setGradedWorldId] = useState<string | null>(null);
 
   const students = getStudentsWithProgress();
   const summary = getClassSummary();
   const activities = getRecentActivity();
+  const studentProgressionMap = students.reduce<Record<string, ReturnType<typeof getStudentProfile>>>(
+    (acc, entry) => {
+      const id = buildStudentIdFromName(entry.student.name);
+      acc[entry.student.id] = getStudentProfile(id, entry.student.name);
+      return acc;
+    },
+    {},
+  );
 
   const handleStudentClick = (student: StudentWithProgress) => {
     router.push(`/teacher/review/${student.student.id}`);
@@ -84,6 +101,22 @@ export default function TeacherPage() {
     });
     setRubricSavedWorldId(world.id);
     setTimeout(() => setRubricSavedWorldId(null), 1500);
+  };
+
+  const gradeWorld = (world: WorldSnapshot, grade: AssignmentGrade) => {
+    const teacherName = getMockSession()?.name || "Teacher";
+    const studentName = world.ownerName || "Student";
+    const studentId = buildStudentIdFromName(studentName);
+    gradeStudentAssignment({
+      studentId,
+      studentName,
+      assignmentId: world.id,
+      assignmentTitle: world.taskTitle || "Creative Assignment",
+      grade,
+      teacherName,
+    });
+    setGradedWorldId(world.id);
+    setTimeout(() => setGradedWorldId(null), 1800);
   };
 
   return (
@@ -211,7 +244,13 @@ export default function TeacherPage() {
                   No published worlds yet. Students can publish from the world editor.
                 </p>
               )}
-              {publishedWorlds.slice(0, 6).map((world) => (
+              {publishedWorlds.slice(0, 6).map((world) => {
+                const profile = getStudentProfile(
+                  buildStudentIdFromName(world.ownerName),
+                  world.ownerName,
+                );
+                const expProgress = getExpProgress(profile);
+                return (
                 <div
                   key={world.id}
                   className="rounded-xl border border-slate-200 p-3"
@@ -222,6 +261,21 @@ export default function TeacherPage() {
                       <p className="text-xs text-gray-600">
                         {world.style || "No style"} • {world.placedAssets.length} objects
                       </p>
+                      <p className="mt-1 text-xs font-semibold text-indigo-700">
+                        Lv. {profile.level} · {profile.title}
+                      </p>
+                      <p className="text-[11px] text-slate-600">
+                        EXP {expProgress.currentExp}/{expProgress.requiredExp} · Total {profile.exp}
+                      </p>
+                      <div className="mt-1 h-1.5 w-40 overflow-hidden rounded-full bg-slate-200">
+                        <div
+                          className="h-full rounded-full bg-indigo-500"
+                          style={{ width: `${Math.max(6, Math.round(expProgress.ratio * 100))}%` }}
+                        />
+                      </div>
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        Latest Grade: {profile.latestGrade || "Not graded"}
+                      </p>
                       {getWorldRubric(world.id) && (
                         <p className="mt-1 text-xs font-semibold text-emerald-700">
                           Rubric: {getRubricAverage(getWorldRubric(world.id)!.scores).toFixed(1)} / 4
@@ -229,6 +283,19 @@ export default function TeacherPage() {
                       )}
                     </div>
                     <div className="flex gap-2">
+                      <div className="flex items-center gap-1">
+                        {(["A", "B", "C", "D"] as AssignmentGrade[]).map((grade) => (
+                          <button
+                            key={grade}
+                            type="button"
+                            onClick={() => gradeWorld(world, grade)}
+                            className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100"
+                            title={`Grade ${grade} (+${getExpForGrade(grade)} EXP)`}
+                          >
+                            {grade}
+                          </button>
+                        ))}
+                      </div>
                       <button
                         type="button"
                         onClick={() => openRubric(world)}
@@ -245,6 +312,11 @@ export default function TeacherPage() {
                       </button>
                     </div>
                   </div>
+                  {gradedWorldId === world.id && (
+                    <p className="mt-2 text-xs font-semibold text-emerald-700">
+                      Grade saved. Progression updated.
+                    </p>
+                  )}
                   {activeRubricWorldId === world.id && (
                     <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
@@ -310,7 +382,7 @@ export default function TeacherPage() {
                     </div>
                   )}
                 </div>
-              ))}
+              )})}
             </div>
           </div>
 
@@ -325,6 +397,7 @@ export default function TeacherPage() {
           <div className="lg:col-span-2">
             <StudentList
               students={students}
+              progressionMap={studentProgressionMap}
               onStudentClick={handleStudentClick}
             />
           </div>

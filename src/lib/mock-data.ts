@@ -7,31 +7,31 @@ import { User, Challenge, StudentProgress } from '@/types'
 export const mockUsers: User[] = [
   {
     id: 'student1',
-    name: 'Alice Johnson',
+    name: 'Ava',
     email: 'alice@example.com',
     role: 'student'
   },
   {
     id: 'student2',
-    name: 'Bob Smith',
+    name: 'Leo',
     email: 'bob@example.com',
     role: 'student'
   },
   {
     id: 'student3',
-    name: 'Charlie Brown',
+    name: 'Mia',
     email: 'charlie@example.com',
     role: 'student'
   },
   {
     id: 'student4',
-    name: 'Diana Prince',
+    name: 'Noah',
     email: 'diana@example.com',
     role: 'student'
   },
   {
     id: 'student5',
-    name: 'Eve Wilson',
+    name: 'Sophia',
     email: 'eve@example.com',
     role: 'student'
   },

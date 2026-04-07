@@ -35,6 +35,11 @@ import {
 import type { StylePack } from "@/lib/ai-asset-pipeline";
 import { getMockSession } from "@/lib/mock-auth";
 import { getMockClassmateWorlds } from "@/lib/mock-classmate-worlds";
+import {
+  buildStudentIdFromName,
+  consumeLevelUpNotification,
+  getStudentProfile,
+} from "@/lib/student-progression";
 
 function shortAssetName(name: string): string {
   if (name.length <= 11) return name;
@@ -387,6 +392,7 @@ export default function WorldScene({
   const [friendsExpanded, setFriendsExpanded] = useState(false);
   const [friendsDocked, setFriendsDocked] = useState(false);
   const [classmateWorlds, setClassmateWorlds] = useState<WorldSnapshot[]>([]);
+  const [levelUpToast, setLevelUpToast] = useState<string | null>(null);
 
   const hotbarAssets = [
     ...assets.filter((asset) => asset.id === "core-build-block"),
@@ -454,6 +460,18 @@ export default function WorldScene({
       setSubtitle("Welcome back! Your canvas has been restored.");
     }
   }, [coreBlockColor, initialSnapshot, reviewMode]);
+
+  useEffect(() => {
+    if (reviewMode) return;
+    const session = getMockSession();
+    if (!session || session.role !== "student") return;
+    const studentId = buildStudentIdFromName(session.name || "Student");
+    const message = consumeLevelUpNotification(studentId);
+    if (!message) return;
+    setLevelUpToast(message);
+    const timer = window.setTimeout(() => setLevelUpToast(null), 3600);
+    return () => window.clearTimeout(timer);
+  }, [reviewMode]);
 
   useEffect(() => {
     if (viewMode !== "explore" || reviewMode) {
@@ -921,17 +939,37 @@ export default function WorldScene({
                   </p>
                 )}
                 {classmateWorlds.map((world) => (
-                  <button
-                    key={world.id}
-                    type="button"
-                    onClick={() => router.push(`/world/view/${world.id}`)}
-                    className="w-full rounded-lg border border-cyan-300/25 bg-slate-800/90 px-3 py-2 text-left hover:border-cyan-300/45 hover:bg-slate-700/90"
-                  >
-                    <p className="text-xs font-bold text-cyan-100">{world.ownerName}</p>
-                    <p className="text-[11px] font-medium text-slate-200">
-                      {world.style || "No style"} • {world.placedAssets.length} objects
-                    </p>
-                  </button>
+                  (() => {
+                    const profile = getStudentProfile(
+                      buildStudentIdFromName(world.ownerName),
+                      world.ownerName,
+                    );
+                    return (
+                      <button
+                        key={world.id}
+                        type="button"
+                        onClick={() => router.push(`/world/view/${world.id}`)}
+                        className="w-full rounded-lg border border-cyan-300/25 bg-slate-800/90 px-3 py-2 text-left hover:border-cyan-300/45 hover:bg-slate-700/90"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-600 text-[11px] font-bold text-white">
+                            {world.ownerName.slice(0, 1).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-cyan-100">
+                              {world.ownerName} · Lv. {profile.level}
+                            </p>
+                            <p className="text-[11px] font-medium text-slate-200">
+                              {profile.title}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="mt-1 text-[11px] font-medium text-slate-300">
+                          {world.style || "No style"} • {world.placedAssets.length} objects
+                        </p>
+                      </button>
+                    );
+                  })()
                 ))}
               </div>
             )}
@@ -1069,6 +1107,12 @@ export default function WorldScene({
       {!reviewMode && viewMode === "explore" && showExploreHint && (
         <div className="pointer-events-none absolute left-1/2 top-36 z-30 -translate-x-1/2 rounded-xl border border-cyan-300/35 bg-[#17243d]/95 px-3 py-2 text-xs font-semibold text-cyan-100 shadow-lg backdrop-blur-sm">
           Explore Mode: click the 3D scene, move with WASD, press Esc to unlock mouse.
+        </div>
+      )}
+
+      {!reviewMode && levelUpToast && (
+        <div className="pointer-events-none absolute left-1/2 top-36 z-30 -translate-x-1/2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700 shadow-lg">
+          {levelUpToast}
         </div>
       )}
 
