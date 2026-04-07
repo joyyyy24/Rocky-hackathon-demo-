@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Vector3 } from "three";
 import { BuildAsset } from "@/lib/asset-generator";
 import { Html } from "@react-three/drei";
+import { useFrame, useThree } from "@react-three/fiber";
 
 export interface PlacedAsset {
   id: string;
@@ -21,6 +22,11 @@ interface CreativeBuildAreaProps {
   selectedAsset: BuildAsset | null;
   placedAssets: PlacedAsset[];
   selectedPlacedAssetId: string | null;
+  floorTheme: FloorThemeId;
+  paintMode?: boolean;
+  selectedFloorPaint: string;
+  paintedTiles: Record<string, string>;
+  onPaintTile: (gridX: number, gridZ: number, color: string) => void;
   onPlaceAsset: (gridX: number, gridZ: number) => void;
   onSelectPlacedAsset: (assetId: string) => void;
   onScaleDownSelected: () => void;
@@ -30,28 +36,68 @@ interface CreativeBuildAreaProps {
   onCloseSelected: () => void;
 }
 
-const GRID_CELLS = 12;
+const CHUNK_SIZE = 16;
+const ACTIVE_CHUNK_RADIUS = 2;
+const INTERACTION_MARGIN_CHUNKS = 1;
 const CELL_SIZE = 1;
-const BOARD_SIZE = GRID_CELLS * CELL_SIZE;
-const HALF_BOARD = BOARD_SIZE / 2;
 
-function toWorldFromGrid(gridIndex: number) {
-  return gridIndex - HALF_BOARD + 0.5;
-}
+export const FLOOR_THEMES = {
+  sandstone: {
+    label: "Sandstone",
+    base: "#d8c8a4",
+    majorGrid: "#c0ad86",
+    minorGrid: "#ccb992",
+  },
+  grass: {
+    label: "Grass",
+    base: "#86bb74",
+    majorGrid: "#649958",
+    minorGrid: "#7cab6f",
+  },
+  snow: {
+    label: "Snow",
+    base: "#e8eff8",
+    majorGrid: "#b9c8dd",
+    minorGrid: "#d3dfee",
+  },
+  "warm-castle-stone": {
+    label: "Warm Castle Stone",
+    base: "#c0b6a3",
+    majorGrid: "#a19580",
+    minorGrid: "#b4a892",
+  },
+  "fantasy-purple": {
+    label: "Fantasy Purple",
+    base: "#8f84c8",
+    majorGrid: "#766aaa",
+    minorGrid: "#8579bc",
+  },
+  "night-blue": {
+    label: "Night Blue",
+    base: "#5c77b1",
+    majorGrid: "#4a6292",
+    minorGrid: "#526e9f",
+  },
+} as const;
+
+export type FloorThemeId = keyof typeof FLOOR_THEMES;
 
 function getSnappedGridCoords(worldX: number, worldZ: number) {
-  const gridX = toGridIndex(snapToGrid(worldX));
-  const gridZ = toGridIndex(snapToGrid(worldZ));
+  const gridX = snapToGrid(worldX);
+  const gridZ = snapToGrid(worldZ);
   return { gridX, gridZ };
 }
 
 function snapToGrid(value: number) {
-  const clamped = Math.max(-HALF_BOARD + 0.5, Math.min(HALF_BOARD - 0.5, value));
-  return Math.round(clamped / CELL_SIZE) * CELL_SIZE;
+  return Math.round(value / CELL_SIZE) * CELL_SIZE;
 }
 
-function toGridIndex(worldValue: number) {
-  return Math.round(worldValue + HALF_BOARD - 0.5);
+function chunkKey(chunkX: number, chunkZ: number) {
+  return `${chunkX},${chunkZ}`;
+}
+
+function getChunkFromGrid(gridValue: number) {
+  return Math.floor(gridValue / CHUNK_SIZE);
 }
 
 export function AssetMesh({ asset }: { asset: BuildAsset }) {
@@ -337,6 +383,11 @@ export function CreativeBuildArea({
   selectedAsset,
   placedAssets,
   selectedPlacedAssetId,
+  floorTheme,
+  paintMode = false,
+  selectedFloorPaint,
+  paintedTiles,
+  onPaintTile,
   onPlaceAsset,
   onSelectPlacedAsset,
   onScaleDownSelected,
@@ -345,8 +396,38 @@ export function CreativeBuildArea({
   onDeleteSelected,
   onCloseSelected,
 }: CreativeBuildAreaProps) {
+  const { camera } = useThree();
   const [hoveredCell, setHoveredCell] = useState<{ gridX: number; gridZ: number } | null>(
     null,
+  );
+  const [activeChunk, setActiveChunk] = useState({ chunkX: 0, chunkZ: 0 });
+
+  useFrame(() => {
+    const nextChunkX = getChunkFromGrid(Math.round(camera.position.x));
+    const nextChunkZ = getChunkFromGrid(Math.round(camera.position.z));
+    setActiveChunk((prev) =>
+      prev.chunkX === nextChunkX && prev.chunkZ === nextChunkZ
+        ? prev
+        : { chunkX: nextChunkX, chunkZ: nextChunkZ },
+    );
+  });
+
+  const chunkCoords = useMemo(() => {
+    const list: Array<{ chunkX: number; chunkZ: number }> = [];
+    for (let dx = -ACTIVE_CHUNK_RADIUS; dx <= ACTIVE_CHUNK_RADIUS; dx += 1) {
+      for (let dz = -ACTIVE_CHUNK_RADIUS; dz <= ACTIVE_CHUNK_RADIUS; dz += 1) {
+        list.push({
+          chunkX: activeChunk.chunkX + dx,
+          chunkZ: activeChunk.chunkZ + dz,
+        });
+      }
+    }
+    return list;
+  }, [activeChunk]);
+
+  const visibleChunkSet = useMemo(
+    () => new Set(chunkCoords.map((chunk) => chunkKey(chunk.chunkX, chunk.chunkZ))),
+    [chunkCoords],
   );
 
   const getPreviewGridY = (gridX: number, gridZ: number) => {
@@ -360,29 +441,52 @@ export function CreativeBuildArea({
     ).length;
   };
 
+  const theme = FLOOR_THEMES[floorTheme];
+  const interactionPlaneSize =
+    (ACTIVE_CHUNK_RADIUS + INTERACTION_MARGIN_CHUNKS) * CHUNK_SIZE * 2;
+  const interactionPlaneX = activeChunk.chunkX * CHUNK_SIZE;
+  const interactionPlaneZ = activeChunk.chunkZ * CHUNK_SIZE;
+  const visiblePaintTiles = Object.entries(paintedTiles).filter(([key]) => {
+    const [xText, zText] = key.split(",");
+    const gridX = Number(xText);
+    const gridZ = Number(zText);
+    if (!Number.isFinite(gridX) || !Number.isFinite(gridZ)) return false;
+    return visibleChunkSet.has(chunkKey(getChunkFromGrid(gridX), getChunkFromGrid(gridZ)));
+  });
+
   return (
     <group>
-      <mesh position={[0, -0.45, 0]} receiveShadow>
-        <boxGeometry args={[BOARD_SIZE + 1, 0.28, BOARD_SIZE + 1]} />
-        <meshStandardMaterial color="#9cb4d8" />
-      </mesh>
+      {chunkCoords.map((chunk) => {
+        const centerX = chunk.chunkX * CHUNK_SIZE + CHUNK_SIZE / 2 - 0.5;
+        const centerZ = chunk.chunkZ * CHUNK_SIZE + CHUNK_SIZE / 2 - 0.5;
+        return (
+          <group key={`${chunk.chunkX}-${chunk.chunkZ}`}>
+            <mesh position={[centerX, -0.24, centerZ]} receiveShadow>
+              <boxGeometry args={[CHUNK_SIZE + 0.08, 0.14, CHUNK_SIZE + 0.08]} />
+              <meshStandardMaterial color={theme.base} />
+            </mesh>
+            <gridHelper
+              args={[CHUNK_SIZE, CHUNK_SIZE, theme.majorGrid, theme.minorGrid]}
+              position={[centerX, -0.16, centerZ]}
+            />
+          </group>
+        );
+      })}
+
+      {visiblePaintTiles.map(([key, color]) => {
+        const [xText, zText] = key.split(",");
+        const gridX = Number(xText);
+        const gridZ = Number(zText);
+        return (
+          <mesh key={`paint-${key}`} position={[gridX, -0.155, gridZ]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[0.94, 0.94]} />
+            <meshStandardMaterial color={color} />
+          </mesh>
+        );
+      })}
 
       <mesh
-        position={[0, -0.23, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        receiveShadow
-      >
-        <planeGeometry args={[BOARD_SIZE, BOARD_SIZE]} />
-        <meshStandardMaterial color="#edf2ff" />
-      </mesh>
-
-      <gridHelper
-        args={[BOARD_SIZE, GRID_CELLS, "#7aa5dd", "#a6c4e8"]}
-        position={[0, -0.22, 0]}
-      />
-
-      <mesh
-        position={[0, -0.21, 0]}
+        position={[interactionPlaneX, -0.14, interactionPlaneZ]}
         rotation={[-Math.PI / 2, 0, 0]}
         onPointerMove={(event) => {
           if (readOnly) return;
@@ -393,18 +497,22 @@ export function CreativeBuildArea({
         onClick={(event) => {
           if (readOnly) return;
           const { gridX, gridZ } = getSnappedGridCoords(event.point.x, event.point.z);
-          onPlaceAsset(gridX, gridZ);
+          if (paintMode) {
+            onPaintTile(gridX, gridZ, selectedFloorPaint);
+          } else {
+            onPlaceAsset(gridX, gridZ);
+          }
         }}
       >
-        <planeGeometry args={[BOARD_SIZE, BOARD_SIZE]} />
+        <planeGeometry args={[interactionPlaneSize, interactionPlaneSize]} />
         <meshBasicMaterial transparent opacity={0} />
       </mesh>
 
       {!readOnly && selectedAsset && hoveredCell && (
         (() => {
           const previewGridY = getPreviewGridY(hoveredCell.gridX, hoveredCell.gridZ);
-          const previewX = toWorldFromGrid(hoveredCell.gridX);
-          const previewZ = toWorldFromGrid(hoveredCell.gridZ);
+          const previewX = hoveredCell.gridX;
+          const previewZ = hoveredCell.gridZ;
           const previewY = -0.1 + previewGridY;
 
           return (
@@ -427,14 +535,18 @@ export function CreativeBuildArea({
       {!readOnly && hoveredCell && (
         <mesh
           position={[
-            toWorldFromGrid(hoveredCell.gridX),
+            hoveredCell.gridX,
             -0.19,
-            toWorldFromGrid(hoveredCell.gridZ),
+            hoveredCell.gridZ,
           ]}
           rotation={[-Math.PI / 2, 0, 0]}
         >
           <planeGeometry args={[0.92, 0.92]} />
-          <meshBasicMaterial color="#67e8f9" transparent opacity={0.2} />
+          <meshBasicMaterial
+            color={paintMode ? selectedFloorPaint : "#67e8f9"}
+            transparent
+            opacity={paintMode ? 0.4 : 0.2}
+          />
         </mesh>
       )}
 

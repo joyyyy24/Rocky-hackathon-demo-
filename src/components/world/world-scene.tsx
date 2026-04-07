@@ -9,7 +9,12 @@ import { AICompanion3D } from "../ai/ai-companion-3d";
 import AICompanion from "../ai/ai-companion";
 import { RockySpeechBubble } from "../ai/rocky-speech-bubble";
 import { BuildAsset, generateAssetSet } from "@/lib/asset-generator";
-import { CreativeBuildArea, PlacedAsset } from "./creative-build-area";
+import {
+  CreativeBuildArea,
+  FLOOR_THEMES,
+  type FloorThemeId,
+  PlacedAsset,
+} from "./creative-build-area";
 import { CreativeTask, defaultCreativeTask, getActiveTask } from "@/lib/tasks";
 import {
   getAskLine,
@@ -49,6 +54,17 @@ const BLOCK_COLOR_SWATCHES = [
   "#f43f5e",
   "#a3a3a3",
   "#111827",
+];
+
+const FLOOR_PAINT_OPTIONS = [
+  "#6eb56f",
+  "#d4bd93",
+  "#9aa0aa",
+  "#b35e47",
+  "#836047",
+  "#f4f3ef",
+  "#4165be",
+  "#8658be",
 ];
 
 function buildCoreBlock(color: string): BuildAsset {
@@ -314,8 +330,8 @@ function FirstPersonRig({ enabled }: { enabled: boolean }) {
 
     camera.position.addScaledVector(direction, f * move);
     camera.position.addScaledVector(rightVec, s * move);
-    camera.position.x = Math.max(-18, Math.min(18, camera.position.x));
-    camera.position.z = Math.max(-18, Math.min(18, camera.position.z));
+    camera.position.x = Math.max(-140, Math.min(140, camera.position.x));
+    camera.position.z = Math.max(-140, Math.min(140, camera.position.z));
     camera.position.y = 1.8;
   });
 
@@ -359,6 +375,10 @@ export default function WorldScene({
   const [recentHistoryAssets, setRecentHistoryAssets] = useState<BuildAsset[]>([]);
   const [viewMode, setViewMode] = useState<"build" | "explore">("build");
   const [showExploreHint, setShowExploreHint] = useState(false);
+  const [floorTheme, setFloorTheme] = useState<FloorThemeId>("warm-castle-stone");
+  const [paintMode, setPaintMode] = useState(false);
+  const [selectedFloorPaint, setSelectedFloorPaint] = useState(FLOOR_PAINT_OPTIONS[0]);
+  const [paintedTiles, setPaintedTiles] = useState<Record<string, string>>({});
   const [rockyPosition, setRockyPosition] = useState<[number, number, number]>([
     6.2,
     1.8,
@@ -408,7 +428,7 @@ export default function WorldScene({
       setPlacedAssets(
         initialSnapshot.placedAssets.map((item) => ({
           ...item,
-          position: new Vector3(item.position.x, item.position.y, item.position.z),
+          position: new Vector3(item.gridX, -0.1 + (item.gridY ?? 0), item.gridZ),
           gridY: item.gridY ?? 0,
         })),
       );
@@ -427,7 +447,7 @@ export default function WorldScene({
       setPlacedAssets(
         draft.placedAssets.map((item) => ({
           ...item,
-          position: new Vector3(item.position.x, item.position.y, item.position.z),
+          position: new Vector3(item.gridX, -0.1 + (item.gridY ?? 0), item.gridZ),
           gridY: item.gridY ?? 0,
         })),
       );
@@ -663,7 +683,7 @@ export default function WorldScene({
       return;
     }
 
-    const pos = new Vector3(gridX - 5.5, -0.1 + gridY, gridZ - 5.5);
+    const pos = new Vector3(gridX, -0.1 + gridY, gridZ);
     const placed: PlacedAsset = {
       id: `${selectedAsset.id}-${Date.now()}`,
       asset: selectedAsset,
@@ -784,6 +804,12 @@ export default function WorldScene({
     showRockyIdea(nextIndex);
   };
 
+  const handlePaintTile = (gridX: number, gridZ: number, color: string) => {
+    if (reviewMode) return;
+    const key = `${gridX},${gridZ}`;
+    setPaintedTiles((prev) => ({ ...prev, [key]: color }));
+  };
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#0f1d38]">
       <Canvas camera={{ position: [10.5, 11, 10.5], fov: 52 }}>
@@ -808,6 +834,11 @@ export default function WorldScene({
             selectedAsset={selectedAsset}
             placedAssets={placedAssets}
             selectedPlacedAssetId={selectedPlacedAssetId}
+            floorTheme={floorTheme}
+            paintMode={paintMode}
+            selectedFloorPaint={selectedFloorPaint}
+            paintedTiles={paintedTiles}
+            onPaintTile={handlePaintTile}
             onPlaceAsset={handlePlaceAsset}
             onSelectPlacedAsset={setSelectedPlacedAssetId}
             onScaleDownSelected={() => handleScaleChange(-0.1)}
@@ -831,7 +862,7 @@ export default function WorldScene({
             enableRotate={true}
               target={[0, -0.2, 0]}
               minDistance={9}
-              maxDistance={24}
+              maxDistance={80}
               minPolarAngle={Math.PI / 5}
               maxPolarAngle={Math.PI / 2.15}
             />
@@ -979,6 +1010,59 @@ export default function WorldScene({
           >
             {publishLabel}
           </button>
+        </div>
+      )}
+
+      {!reviewMode && (
+        <div className="absolute right-4 top-36 z-30 w-[230px] rounded-xl border border-cyan-200/30 bg-[#172640]/95 p-3 text-white shadow-[0_10px_24px_rgba(2,6,23,0.42)] backdrop-blur-md">
+          <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-cyan-200">
+            Floor Theme
+          </p>
+          <select
+            value={floorTheme}
+            onChange={(event) => setFloorTheme(event.target.value as FloorThemeId)}
+            className="h-8 w-full rounded-lg border border-slate-500 bg-slate-900/95 px-2 text-xs font-semibold text-slate-100 outline-none focus:ring-2 focus:ring-cyan-400/50"
+          >
+            {Object.entries(FLOOR_THEMES).map(([id, config]) => (
+              <option key={id} value={id}>
+                {config.label}
+              </option>
+            ))}
+          </select>
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPaintMode((prev) => !prev)}
+              className={`h-8 rounded-lg border px-2 text-xs font-bold transition ${
+                paintMode
+                  ? "border-cyan-200/70 bg-cyan-400/25 text-cyan-100"
+                  : "border-slate-400/45 bg-slate-700/70 text-slate-100"
+              }`}
+            >
+              {paintMode ? "Paint Mode: ON" : "Paint Mode: OFF"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaintedTiles({})}
+              className="h-8 rounded-lg border border-rose-300/50 bg-rose-500/20 px-2 text-xs font-bold text-rose-100 hover:bg-rose-500/35"
+            >
+              Clear
+            </button>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {FLOOR_PAINT_OPTIONS.map((color) => (
+              <button
+                key={color}
+                type="button"
+                onClick={() => setSelectedFloorPaint(color)}
+                className={`h-5 w-5 rounded-full border ${
+                  selectedFloorPaint === color ? "border-white ring-2 ring-cyan-300/70" : "border-slate-300/60"
+                }`}
+                style={{ backgroundColor: color }}
+                title={`Use floor paint ${color}`}
+              />
+            ))}
+          </div>
         </div>
       )}
 
