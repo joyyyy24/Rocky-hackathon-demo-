@@ -15,6 +15,13 @@ import { RoleGuard } from "@/components/auth/role-guard";
 import { CreativeTask, defaultCreativeTask, getActiveTask, saveActiveTask } from "@/lib/tasks";
 import { getBuildSummary } from "@/lib/build-state";
 import { getPublishedWorlds, WorldSnapshot } from "@/lib/world-storage";
+import {
+  getRubricAverage,
+  getWorldRubric,
+  saveWorldRubric,
+  type RubricScores,
+} from "@/lib/review-rubric";
+import { getMockSession } from "@/lib/mock-auth";
 
 export default function TeacherPage() {
   const router = useRouter();
@@ -22,6 +29,15 @@ export default function TeacherPage() {
   const [isSaved, setIsSaved] = useState(false);
   const [latestBuild, setLatestBuild] = useState(getBuildSummary());
   const [publishedWorlds, setPublishedWorlds] = useState<WorldSnapshot[]>([]);
+  const [activeRubricWorldId, setActiveRubricWorldId] = useState<string | null>(null);
+  const [rubricScores, setRubricScores] = useState<RubricScores>({
+    creativity: 3,
+    structure: 3,
+    taskCompletion: 3,
+    expression: 3,
+  });
+  const [rubricFeedback, setRubricFeedback] = useState("");
+  const [rubricSavedWorldId, setRubricSavedWorldId] = useState<string | null>(null);
 
   const students = getStudentsWithProgress();
   const summary = getClassSummary();
@@ -41,6 +57,33 @@ export default function TeacherPage() {
     saveActiveTask(taskDraft);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 1800);
+  };
+
+  const openRubric = (world: WorldSnapshot) => {
+    const current = getWorldRubric(world.id);
+    setActiveRubricWorldId(world.id);
+    setRubricScores(
+      current?.scores || {
+        creativity: 3,
+        structure: 3,
+        taskCompletion: 3,
+        expression: 3,
+      },
+    );
+    setRubricFeedback(current?.feedback || "");
+    setRubricSavedWorldId(null);
+  };
+
+  const saveRubric = (world: WorldSnapshot) => {
+    const teacherName = getMockSession()?.name || "Teacher";
+    saveWorldRubric({
+      worldId: world.id,
+      teacherName,
+      scores: rubricScores,
+      feedback: rubricFeedback,
+    });
+    setRubricSavedWorldId(world.id);
+    setTimeout(() => setRubricSavedWorldId(null), 1500);
   };
 
   return (
@@ -171,21 +214,101 @@ export default function TeacherPage() {
               {publishedWorlds.slice(0, 6).map((world) => (
                 <div
                   key={world.id}
-                  className="rounded-xl border border-slate-200 p-3 flex items-center justify-between"
+                  className="rounded-xl border border-slate-200 p-3"
                 >
-                  <div>
-                    <p className="font-semibold text-gray-900">{world.ownerName}</p>
-                    <p className="text-xs text-gray-600">
-                      {world.style || "No style"} • {world.placedAssets.length} objects
-                    </p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-gray-900">{world.ownerName}</p>
+                      <p className="text-xs text-gray-600">
+                        {world.style || "No style"} • {world.placedAssets.length} objects
+                      </p>
+                      {getWorldRubric(world.id) && (
+                        <p className="mt-1 text-xs font-semibold text-emerald-700">
+                          Rubric: {getRubricAverage(getWorldRubric(world.id)!.scores).toFixed(1)} / 4
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openRubric(world)}
+                        className="rounded-lg border border-indigo-300 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-500/20"
+                      >
+                        Rubric
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/world/view/${world.id}`)}
+                        className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+                      >
+                        Open World
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => router.push(`/world/view/${world.id}`)}
-                    className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
-                  >
-                    Open World
-                  </button>
+                  {activeRubricWorldId === world.id && (
+                    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                        Teacher Rubric (1-4)
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        {(
+                          [
+                            ["creativity", "Creativity"],
+                            ["structure", "Structure"],
+                            ["taskCompletion", "Task Completion"],
+                            ["expression", "Expression"],
+                          ] as const
+                        ).map(([key, label]) => (
+                          <label key={key} className="rounded-md bg-white p-2">
+                            <span className="block text-slate-600">{label}</span>
+                            <select
+                              value={rubricScores[key]}
+                              onChange={(event) =>
+                                setRubricScores((prev) => ({
+                                  ...prev,
+                                  [key]: Number(event.target.value),
+                                }))
+                              }
+                              className="mt-1 w-full rounded border border-slate-300 px-2 py-1"
+                            >
+                              {[1, 2, 3, 4].map((n) => (
+                                <option key={n} value={n}>
+                                  {n}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        ))}
+                      </div>
+                      <label className="mt-2 block text-xs text-slate-600">
+                        One-line feedback
+                        <textarea
+                          rows={2}
+                          value={rubricFeedback}
+                          onChange={(event) => setRubricFeedback(event.target.value)}
+                          className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-xs"
+                          placeholder="Strong style consistency. Try clearer path connections next."
+                        />
+                      </label>
+                      <div className="mt-2 flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => saveRubric(world)}
+                          className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
+                        >
+                          Save Rubric
+                        </button>
+                        {rubricSavedWorldId === world.id && (
+                          <span className="text-xs font-semibold text-emerald-600">
+                            Saved
+                          </span>
+                        )}
+                        <span className="text-xs text-slate-500">
+                          Avg {getRubricAverage(rubricScores).toFixed(1)} / 4
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

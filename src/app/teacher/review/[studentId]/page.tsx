@@ -23,7 +23,7 @@ export default function TeacherReviewWorldPage() {
 
   return (
     <RoleGuard requiredRole="teacher">
-      <div className="min-h-screen bg-gray-950">
+      <div className="relative h-[calc(100dvh-4rem)] overflow-hidden bg-gray-950">
         <div className="absolute left-4 top-20 z-40 rounded-xl border border-white/20 bg-slate-900/85 px-4 py-3 text-white backdrop-blur">
           <p className="text-xs uppercase tracking-widest text-cyan-200">
             Teacher Review Mode

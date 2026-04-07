@@ -32,6 +32,8 @@ This is a **hackathon MVP** built for fast iteration: local auth/session state +
 - Place, select, scale (`0.5x-2.0x`), rotate (`90deg`), delete
 - Save draft and publish world
 - Review-safe read-only mode for teacher world review page
+- In-build **Socratic prompts** from Rocky at key build milestones (question-led, no direct answers)
+- Student can expand a **classmate worlds list** and open published friend worlds
 
 ### Rocky Companion
 
@@ -45,6 +47,10 @@ This is a **hackathon MVP** built for fast iteration: local auth/session state +
 - Teacher can publish active mission
 - Teacher can open student world review
 - Parent can view summary data read-only
+- Teacher can score published worlds with a visual **Rubric**:
+  - Creativity / Structure / Task Completion / Expression (1-4 each)
+  - One-line feedback
+  - Average rubric score shown on teacher dashboard and world view
 
 ---
 
@@ -138,6 +144,24 @@ npm run dev
   - Rocky Q&A response generation
 - `src/app/api/assets/route.ts`
   - style pack + object pack generation and mapping to buildable assets
+
+## Education Features Added
+
+- **Socratic Learning Prompts**
+  - File: `src/lib/socratic-prompts.ts`
+  - Triggered in `world-scene` when students reach key placement counts
+  - Purpose: encourage reasoning and reflection during building
+
+- **Teacher Rubric Assessment**
+  - File: `src/lib/review-rubric.ts`
+  - UI in `src/app/teacher/page.tsx`
+  - Display in `src/app/world/view/[worldId]/page.tsx`
+  - Purpose: structured, classroom-ready feedback with comparable scoring
+
+- **Visit Classmates**
+  - UI in `src/components/world/world-scene.tsx`
+  - Students can expand a friend list and open published worlds
+  - Purpose: peer inspiration and social learning
 
 ---
 

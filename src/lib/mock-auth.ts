@@ -15,7 +15,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 export const ROLE_HOME: Record<UserRole, string> = {
-  student: "/world",
+  student: "/student",
   teacher: "/teacher",
   parent: "/parent",
 };

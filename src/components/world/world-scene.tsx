@@ -1,8 +1,9 @@
 "use client";
 
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
-import { Suspense, useEffect, useState } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { OrbitControls, PointerLockControls } from "@react-three/drei";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { FloatingIsland } from "./floating-island";
 import { AICompanion3D } from "../ai/ai-companion-3d";
 import AICompanion from "../ai/ai-companion";
@@ -21,11 +22,15 @@ import { getBuildSummary, saveBuildSummary } from "@/lib/build-state";
 import { Vector3 } from "three";
 import {
   loadCurrentStudentDraft,
+  getPublishedWorlds,
   publishCurrentStudentWorld,
   saveCurrentStudentDraft,
   type WorldSnapshot,
 } from "@/lib/world-storage";
 import type { StylePack } from "@/lib/ai-asset-pipeline";
+import { getMockSession } from "@/lib/mock-auth";
+import { getSocraticPrompt } from "@/lib/socratic-prompts";
+import { getMockClassmateWorlds } from "@/lib/mock-classmate-worlds";
 
 function shortAssetName(name: string): string {
   if (name.length <= 11) return name;
@@ -217,11 +222,78 @@ interface WorldSceneProps {
   initialSnapshot?: WorldSnapshot | null;
 }
 
+function FirstPersonRig({ enabled }: { enabled: boolean }) {
+  const { camera } = useThree();
+  const keyState = useRef({
+    forward: false,
+    backward: false,
+    left: false,
+    right: false,
+  });
+
+  useEffect(() => {
+    if (!enabled) return;
+    camera.position.set(0, 1.8, 8.5);
+    camera.lookAt(0, 1.8, 0);
+  }, [camera, enabled]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code === "KeyW") keyState.current.forward = true;
+      if (event.code === "KeyS") keyState.current.backward = true;
+      if (event.code === "KeyA") keyState.current.left = true;
+      if (event.code === "KeyD") keyState.current.right = true;
+    };
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.code === "KeyW") keyState.current.forward = false;
+      if (event.code === "KeyS") keyState.current.backward = false;
+      if (event.code === "KeyA") keyState.current.left = false;
+      if (event.code === "KeyD") keyState.current.right = false;
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, [enabled]);
+
+  useFrame((_, delta) => {
+    if (!enabled) return;
+    const speed = 5.8;
+    const move = speed * delta;
+    const forward = keyState.current.forward ? 1 : 0;
+    const backward = keyState.current.backward ? 1 : 0;
+    const left = keyState.current.left ? 1 : 0;
+    const right = keyState.current.right ? 1 : 0;
+    const f = forward - backward;
+    const s = right - left;
+    if (f === 0 && s === 0) return;
+
+    const direction = new Vector3();
+    camera.getWorldDirection(direction);
+    direction.y = 0;
+    direction.normalize();
+    const rightVec = new Vector3(direction.z, 0, -direction.x).normalize();
+
+    camera.position.addScaledVector(direction, f * move);
+    camera.position.addScaledVector(rightVec, s * move);
+    camera.position.x = Math.max(-18, Math.min(18, camera.position.x));
+    camera.position.z = Math.max(-18, Math.min(18, camera.position.z));
+    camera.position.y = 1.8;
+  });
+
+  if (!enabled) return null;
+  return <PointerLockControls />;
+}
+
 export default function WorldScene({
   reviewMode = false,
   reviewStudentName = "",
   initialSnapshot = null,
 }: WorldSceneProps) {
+  const router = useRouter();
   const [subtitle, setSubtitle] = useState("Rocky is waking up...");
   const [taskTitle, setTaskTitle] = useState("");
   const [taskPrompt, setTaskPrompt] = useState("");
@@ -249,10 +321,31 @@ export default function WorldScene({
   const [isAskingRocky, setIsAskingRocky] = useState(false);
   const [activeStylePack, setActiveStylePack] = useState<StylePack | null>(null);
   const [recentHistoryAssets, setRecentHistoryAssets] = useState<BuildAsset[]>([]);
+  const [viewMode, setViewMode] = useState<"build" | "explore">("build");
+  const [socraticPrompt, setSocraticPrompt] = useState<string | null>(null);
+  const [socraticIndex, setSocraticIndex] = useState(0);
+  const [askedMilestones, setAskedMilestones] = useState<number[]>([]);
+  const [friendsExpanded, setFriendsExpanded] = useState(false);
+  const [classmateWorlds, setClassmateWorlds] = useState<WorldSnapshot[]>([]);
 
   useEffect(() => {
     const task = getActiveTask();
     const summary = getBuildSummary();
+    const sessionName = getMockSession()?.name?.trim();
+    const realClassmates = getPublishedWorlds()
+      .filter((item) => item.ownerName !== (sessionName || "Student"))
+      .sort(
+        (a, b) =>
+          +new Date(b.publishedAt || b.updatedAt) - +new Date(a.publishedAt || a.updatedAt),
+      );
+    const fakeClassmates = getMockClassmateWorlds().filter(
+      (item) => item.ownerName !== (sessionName || "Student"),
+    );
+    const merged = [...realClassmates, ...fakeClassmates].filter(
+      (item, idx, arr) => idx === arr.findIndex((x) => x.id === item.id),
+    );
+    const classmates = merged.slice(0, 12);
+    setClassmateWorlds(classmates);
     setActiveTask(task);
     setTaskTitle(task.title);
     setTaskPrompt(task.prompt);
@@ -349,6 +442,8 @@ export default function WorldScene({
     setAssets(nextAssets);
     setSelectedAsset(nextAssets[0] || null);
     setRecentHistoryAssets((prev) => [...nextAssets, ...prev].slice(0, 40));
+    setAskedMilestones([]);
+    setSocraticPrompt(null);
     const line = getStyleLine(style);
     setSubtitle(line);
     persistSummary({ style, latestRockyLine: line, completionStatus: "in-progress" });
@@ -474,6 +569,25 @@ export default function WorldScene({
     }
   };
 
+  const maybeTriggerSocraticPrompt = (nextPlacedCount: number, latestObject?: string) => {
+    if (reviewMode) return;
+    const milestones = [1, 3, 5, 8];
+    if (!milestones.includes(nextPlacedCount)) return;
+    if (askedMilestones.includes(nextPlacedCount)) return;
+
+    const prompt = getSocraticPrompt(
+      {
+        style: selectedStyle,
+        placedCount: nextPlacedCount,
+        latestObject,
+      },
+      socraticIndex,
+    );
+    setSocraticPrompt(prompt);
+    setSocraticIndex((prev) => prev + 1);
+    setAskedMilestones((prev) => [...prev, nextPlacedCount]);
+  };
+
   const handlePlaceAsset = (gridX: number, gridZ: number, position: Vector3) => {
     if (!selectedAsset) {
       setSubtitle("Choose one item from your library first!");
@@ -498,6 +612,7 @@ export default function WorldScene({
     setSelectedAsset(null);
     const line = getPlacementLine(selectedAsset.label, nextPlaced.length);
     setSubtitle(line);
+    maybeTriggerSocraticPrompt(nextPlaced.length, selectedAsset.label);
     persistSummary({
       objectsPlaced: nextPlaced.length,
       latestObject: selectedAsset.label,
@@ -638,21 +753,29 @@ export default function WorldScene({
             onRockyClick={handleRockyClick}
           />
 
+          {viewMode === "build" ? (
           <OrbitControls
             enablePan={true}
             enableZoom={true}
             enableRotate={true}
-            target={[0, -0.2, 0]}
-            minDistance={9}
-            maxDistance={24}
-            minPolarAngle={Math.PI / 5}
-            maxPolarAngle={Math.PI / 2.15}
-          />
+              target={[0, -0.2, 0]}
+              minDistance={9}
+              maxDistance={24}
+              minPolarAngle={Math.PI / 5}
+              maxPolarAngle={Math.PI / 2.15}
+            />
+          ) : (
+            <FirstPersonRig enabled />
+          )}
         </Suspense>
       </Canvas>
 
       {isMissionVisible && (
-        <div className="absolute left-4 top-20 z-20 w-[min(420px,90vw)] rounded-2xl border border-cyan-200/30 bg-slate-900/75 p-4 pr-12 text-white backdrop-blur">
+        <div
+          className={`absolute left-4 z-20 w-[min(420px,90vw)] rounded-2xl border border-cyan-200/30 bg-slate-900/75 p-4 pr-12 text-white backdrop-blur ${
+            reviewMode ? "top-44" : "top-20"
+          }`}
+        >
           <button
             type="button"
             onClick={() => setIsMissionVisible(false)}
@@ -668,6 +791,61 @@ export default function WorldScene({
             <p className="mt-2 text-xs font-semibold text-amber-200">
               Read-only review for {reviewStudentName || "selected student"}
             </p>
+          )}
+        </div>
+      )}
+
+      {!reviewMode && socraticPrompt && (
+        <div className="absolute left-4 top-[11.8rem] z-30 w-[min(420px,90vw)] rounded-2xl border border-amber-200/40 bg-slate-900/88 p-4 pr-12 text-white shadow-lg">
+          <button
+            type="button"
+            onClick={() => setSocraticPrompt(null)}
+            aria-label="Close socratic prompt"
+            className="absolute right-3 top-3 h-8 w-8 rounded-lg border border-amber-200/25 bg-slate-800/85 text-amber-100 transition hover:bg-slate-700"
+          >
+            ×
+          </button>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-200">
+            Rocky Question
+          </p>
+          <p className="mt-1 text-sm text-slate-100">{socraticPrompt}</p>
+          <p className="mt-2 text-xs text-slate-300">
+            Think first, then try your next build move.
+          </p>
+        </div>
+      )}
+
+      {!reviewMode && (
+        <div className="absolute left-4 top-[17.2rem] z-30 w-[min(320px,86vw)] rounded-xl border border-cyan-200/30 bg-slate-900/80 p-2 text-white backdrop-blur">
+          <button
+            type="button"
+            onClick={() => setFriendsExpanded((prev) => !prev)}
+            className="flex w-full items-center justify-between rounded-lg bg-slate-800/80 px-3 py-2 text-left text-xs font-semibold text-cyan-100 hover:bg-slate-700"
+          >
+            <span>Visit Classmates&apos; Worlds</span>
+            <span>{friendsExpanded ? "▲" : "▼"}</span>
+          </button>
+          {friendsExpanded && (
+            <div className="mt-2 max-h-56 space-y-2 overflow-y-auto px-1 pb-1">
+              {classmateWorlds.length === 0 && (
+                <p className="rounded-lg bg-slate-800/60 px-2 py-2 text-xs text-slate-300">
+                  No published classmate worlds yet.
+                </p>
+              )}
+              {classmateWorlds.map((world) => (
+                <button
+                  key={world.id}
+                  type="button"
+                  onClick={() => router.push(`/world/view/${world.id}`)}
+                  className="w-full rounded-lg border border-cyan-300/20 bg-slate-800/70 px-3 py-2 text-left hover:bg-slate-700"
+                >
+                  <p className="text-xs font-semibold text-cyan-100">{world.ownerName}</p>
+                  <p className="text-[11px] text-slate-300">
+                    {world.style || "No style"} • {world.placedAssets.length} objects
+                  </p>
+                </button>
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -714,6 +892,14 @@ export default function WorldScene({
         <div className="absolute right-4 top-20 z-30 flex items-center gap-2 rounded-xl border border-cyan-200/30 bg-slate-900/82 p-2 backdrop-blur-md">
           <button
             type="button"
+            onClick={() => setViewMode((current) => (current === "build" ? "explore" : "build"))}
+            className="h-9 rounded-lg border border-cyan-300/50 bg-cyan-500/15 px-3 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/25"
+            title="Switch camera mode"
+          >
+            {viewMode === "build" ? "Explore Mode" : "Build Mode"}
+          </button>
+          <button
+            type="button"
             onClick={handleSaveWorld}
             className="h-9 rounded-lg border border-emerald-300/50 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-100 hover:bg-emerald-400/25"
           >
@@ -726,6 +912,12 @@ export default function WorldScene({
           >
             {publishLabel}
           </button>
+        </div>
+      )}
+
+      {!reviewMode && viewMode === "explore" && (
+        <div className="pointer-events-none absolute left-1/2 top-36 z-30 -translate-x-1/2 rounded-xl border border-cyan-300/30 bg-slate-950/70 px-3 py-2 text-xs text-cyan-100 backdrop-blur-sm">
+          Explore Mode: click the 3D scene, move with WASD, press Esc to unlock mouse.
         </div>
       )}
 
