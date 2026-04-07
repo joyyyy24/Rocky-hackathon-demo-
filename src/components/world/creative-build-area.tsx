@@ -444,11 +444,12 @@ export function CreativeBuildArea({
           position={placed.position}
           scale={[placed.scale, placed.scale, placed.scale]}
           rotation={[0, placed.rotationY, 0]}
-          onClick={(event) => {
-            if (!readOnly) {
-              event.stopPropagation();
-              onSelectPlacedAsset(placed.id);
-            }
+          onContextMenu={(event) => {
+            if (readOnly) return;
+
+            event.stopPropagation();
+            event.nativeEvent.preventDefault();
+            onSelectPlacedAsset(placed.id);
           }}
         >
           {!readOnly && selectedPlacedAssetId === placed.id && (
