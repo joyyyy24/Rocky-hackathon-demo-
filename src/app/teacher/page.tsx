@@ -13,7 +13,6 @@ import { RecentActivity } from "@/components/teacher/recent-activity";
 import { StudentWithProgress } from "@/lib/teacher-data";
 import { RoleGuard } from "@/components/auth/role-guard";
 import { CreativeTask, defaultCreativeTask, getActiveTask, saveActiveTask } from "@/lib/tasks";
-import { getBuildSummary } from "@/lib/build-state";
 import { getPublishedWorlds, WorldSnapshot } from "@/lib/world-storage";
 import {
   getRubricAverage,
@@ -35,7 +34,6 @@ export default function TeacherPage() {
   const router = useRouter();
   const [taskDraft, setTaskDraft] = useState<CreativeTask>(defaultCreativeTask);
   const [isSaved, setIsSaved] = useState(false);
-  const [latestBuild, setLatestBuild] = useState(getBuildSummary());
   const [publishedWorlds, setPublishedWorlds] = useState<WorldSnapshot[]>([]);
   const [activeRubricWorldId, setActiveRubricWorldId] = useState<string | null>(null);
   const [rubricScores, setRubricScores] = useState<RubricScores>({
@@ -66,7 +64,6 @@ export default function TeacherPage() {
 
   useEffect(() => {
     setTaskDraft(getActiveTask());
-    setLatestBuild(getBuildSummary());
     setPublishedWorlds(getPublishedWorlds());
   }, []);
 
@@ -211,28 +208,6 @@ export default function TeacherPage() {
                   Saved! Student mission updated.
                 </span>
               )}
-            </div>
-          </div>
-
-          <div className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-            <h2 className="text-xl font-bold text-gray-900 mb-3">Student Build Snapshot</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div className="rounded-xl bg-slate-50 p-3">
-                <p className="text-gray-500">Current Task</p>
-                <p className="font-semibold text-gray-900">{taskDraft.title}</p>
-              </div>
-              <div className="rounded-xl bg-slate-50 p-3">
-                <p className="text-gray-500">Objects Placed</p>
-                <p className="font-semibold text-gray-900">{latestBuild.objectsPlaced}</p>
-              </div>
-              <div className="rounded-xl bg-slate-50 p-3">
-                <p className="text-gray-500">Latest Theme</p>
-                <p className="font-semibold text-gray-900">{latestBuild.style || "Not set"}</p>
-              </div>
-            </div>
-            <div className="mt-4 rounded-xl bg-slate-50 p-3 text-sm">
-              <p className="text-gray-500 mb-1">Latest Rocky Reflection</p>
-              <p className="text-gray-900">{latestBuild.latestRockyLine}</p>
             </div>
           </div>
 
