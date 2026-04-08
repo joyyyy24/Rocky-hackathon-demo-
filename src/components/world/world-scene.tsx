@@ -60,6 +60,7 @@ const BLOCK_COLOR_SWATCHES = [
   "#a3a3a3",
   "#111827",
 ];
+const DEFAULT_CORE_BLOCK_COLOR = "#d6b36a";
 
 const FLOOR_PAINT_OPTIONS = [
   "#6eb56f",
@@ -358,7 +359,7 @@ export default function WorldScene({
   const [selectedStyle, setSelectedStyle] = useState("");
   const [assets, setAssets] = useState<BuildAsset[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<BuildAsset | null>(null);
-  const [coreBlockColor, setCoreBlockColor] = useState("#d6b36a");
+  const [coreBlockColor, setCoreBlockColor] = useState(DEFAULT_CORE_BLOCK_COLOR);
   const [customRequest, setCustomRequest] = useState("");
   const [placedAssets, setPlacedAssets] = useState<PlacedAsset[]>([]);
   const [selectedPlacedAssetId, setSelectedPlacedAssetId] = useState<string | null>(
@@ -430,7 +431,7 @@ export default function WorldScene({
     if (initialSnapshot) {
       setSelectedStyle(initialSnapshot.style);
       setStyleInput(initialSnapshot.style);
-      setAssets(withCoreBlock(generateAssetSet(initialSnapshot.style || "default"), buildCoreBlock(coreBlockColor)));
+      setAssets(withCoreBlock(generateAssetSet(initialSnapshot.style || "default"), buildCoreBlock(DEFAULT_CORE_BLOCK_COLOR)));
       setPlacedAssets(
         initialSnapshot.placedAssets.map((item) => ({
           ...item,
@@ -442,14 +443,14 @@ export default function WorldScene({
     }
 
     if (summary.style) {
-      setAssets(withCoreBlock(generateAssetSet(summary.style), buildCoreBlock(coreBlockColor)));
+      setAssets(withCoreBlock(generateAssetSet(summary.style), buildCoreBlock(DEFAULT_CORE_BLOCK_COLOR)));
     }
 
     const draft = loadCurrentStudentDraft();
     if (draft && !reviewMode) {
       setSelectedStyle(draft.style);
       setStyleInput(draft.style);
-      setAssets(withCoreBlock(generateAssetSet(draft.style || "default"), buildCoreBlock(coreBlockColor)));
+      setAssets(withCoreBlock(generateAssetSet(draft.style || "default"), buildCoreBlock(DEFAULT_CORE_BLOCK_COLOR)));
       setPlacedAssets(
         draft.placedAssets.map((item) => ({
           ...item,
@@ -459,7 +460,7 @@ export default function WorldScene({
       );
       setSubtitle("Welcome back! Your canvas has been restored.");
     }
-  }, [coreBlockColor, initialSnapshot, reviewMode]);
+  }, [initialSnapshot, reviewMode]);
 
   useEffect(() => {
     if (reviewMode) return;
