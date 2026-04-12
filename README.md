@@ -25,7 +25,7 @@ This is a **hackathon MVP** built for fast iteration: local auth/session state +
 - Route guards by role
 - Logout returns to role entry
 
-### Student Build Experience
+### Students Build Experience
 
 - 12x12 build board, snap-to-grid, one item per cell
 - Hotbar with 10 generated assets
